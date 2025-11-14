@@ -1,11 +1,11 @@
+from pathlib import Path
+
 """
 Path Configuration for Deepfake Face Detection Project
 This module contains all path constants for easy access to data directories.
 """
 
-from pathlib import Path
-
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 DATA_ROOT = PROJECT_ROOT / "data"
 SRC_ROOT = PROJECT_ROOT / "src"
 CONFIG_ROOT = SRC_ROOT / "config"
@@ -24,5 +24,8 @@ VALID_FAKE = VALID_ROOT / "fake"
 VALID_REAL = VALID_ROOT / "real"
 
 # CSV files
-TRAIN_CSV = RVF10K_ROOT / "train.csv"
-VALID_CSV = RVF10K_ROOT / "valid.csv"
+TRAIN_CSV = DATA_ROOT / "train.csv"
+VALID_CSV = DATA_ROOT / "valid.csv"
+
+# Experiment Output Folder
+OUTPUT_FOLDER = SRC_ROOT / "output"

@@ -1,8 +1,8 @@
 filename,label,label_str
-24731.jpg,1,real
-02004.jpg,1,real
-68164.jpg,1,real
-39647.jpg,1,real
+24731.jpg,0,fake
+02004.jpg,0,fake
+68164.jpg,0,fake
+39647.jpg,0,fake
 49014.jpg,1,real
 15396.jpg,1,real
 09491.jpg,1,real
