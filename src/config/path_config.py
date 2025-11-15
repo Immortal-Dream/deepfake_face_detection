@@ -10,6 +10,9 @@ DATA_ROOT = PROJECT_ROOT / "data"
 SRC_ROOT = PROJECT_ROOT / "src"
 CONFIG_ROOT = SRC_ROOT / "config"
 
+# DL Models Layer
+MODEL_FOLDER = PROJECT_ROOT / "models"
+
 # Dataset root
 RVF10K_ROOT = DATA_ROOT / "rvf10k"
 
@@ -24,8 +27,9 @@ VALID_FAKE = VALID_ROOT / "fake"
 VALID_REAL = VALID_ROOT / "real"
 
 # CSV files
-TRAIN_CSV = DATA_ROOT / "train.csv"
-VALID_CSV = DATA_ROOT / "valid.csv"
+TRAIN_CSV = RVF10K_ROOT / "train.csv"
+VALID_CSV = RVF10K_ROOT / "valid.csv"
 
 # Experiment Output Folder
-OUTPUT_FOLDER = SRC_ROOT / "output"
+OUTPUT_FOLDER = DATA_ROOT / "output"
+
