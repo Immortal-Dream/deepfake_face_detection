@@ -33,3 +33,5 @@ VALID_CSV = RVF10K_ROOT / "valid.csv"
 # Experiment Output Folder
 OUTPUT_FOLDER = DATA_ROOT / "output"
 
+# Leader board result path
+OVERALL_FOLDER = OUTPUT_FOLDER / "overall"

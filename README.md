@@ -44,9 +44,16 @@ Once your virtual environment is activated, run the following command to install
 pip install -r requirements.txt
 ```
 
+### 3\. Run Experiments
+
+- Method 1: 
+```commandline
+python -m src.experiments.baselines.MobileNetV3Large.main --epochs 15
+```
+
 -----
 
-### **⚠️ Important Note on PyTorch (torch)**
+### **Note on PyTorch (torch)**
 
 The `requirements.txt` file includes `torch` and `torchvision`, which will install the standard CPU-only version from PyPI by default.
 

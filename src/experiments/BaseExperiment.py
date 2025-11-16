@@ -2,8 +2,8 @@ import warnings
 import numpy as np
 import pandas as pd
 from datetime import datetime
-from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
-from src.config.path_config import OUTPUT_FOLDER, MODEL_FOLDER
+from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score, accuracy_score
+from src.config.path_config import OUTPUT_FOLDER, MODEL_FOLDER, OVERALL_FOLDER
 from src.services.F1MetricsCallback import F1MetricsCallback
 from src.services.plot_service import PlotService
 
@@ -97,6 +97,7 @@ class BaseExperiment:
 
         # Save results
         self.save_metrics_to_csv()
+        self.update_leaderboard()
         self.save_model()
 
         print(f"\n{'=' * 60}")
@@ -156,6 +157,52 @@ class BaseExperiment:
             metrics_df.to_csv(csv_path, index=False)
 
         print(f"Metrics log saved to {csv_path}")
+
+    def update_leaderboard(self):
+        """
+        Update or insert experiment metrics in the leaderboard CSV.
+        Sorts by f1_score in descending order.
+        """
+        # Check for required metrics
+        required_keys = ['experiment_name', 'precision', 'recall', 'f1_score', 'timestamp']
+        if not all(key in self.metrics for key in required_keys):
+            print("Warning: Missing required metrics for leaderboard. Skipping update.")
+            return
+
+        leaderboard_path = OVERALL_FOLDER / 'leader_board.csv'
+
+        # Ensure directory exists
+        OVERALL_FOLDER.mkdir(parents=True, exist_ok=True)
+
+        # Prepare leaderboard data (only needed columns)
+        leaderboard_data = {
+            'experiment_name': self.metrics['experiment_name'],
+            'precision': f"{self.metrics['precision']:.4f}",
+            'recall': f"{self.metrics['recall']:.4f}",
+            'f1_score': f"{self.metrics['f1_score']:.4f}",
+            'timestamp': self.metrics['timestamp']
+        }
+
+        # Read existing leaderboard or create new
+        if leaderboard_path.exists():
+            df = pd.read_csv(leaderboard_path)
+
+            # Update existing or append new
+            if self.experiment_name in df['experiment_name'].values:
+                df.loc[df['experiment_name'] == self.experiment_name] = list(leaderboard_data.values())
+                print(f"Updated existing entry for {self.experiment_name} in leaderboard")
+            else:
+                df = pd.concat([df, pd.DataFrame([leaderboard_data])], ignore_index=True)
+                print(f"Added new entry for {self.experiment_name} to leaderboard")
+        else:
+            df = pd.DataFrame([leaderboard_data])
+            print(f"Created new leaderboard with entry for {self.experiment_name}")
+
+        # Sort by f1_score descending and save
+        df['f1_score'] = df['f1_score'].astype(float)  # Ensure numeric for sorting
+        df = df.sort_values(by='f1_score', ascending=False).reset_index(drop=True)
+        df.to_csv(leaderboard_path, index=False)
+        print(f"Leaderboard sorted and saved to {leaderboard_path}")
 
     def _setup_directories(self):
         """Create experiment output directory structure."""
