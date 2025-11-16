@@ -7,7 +7,6 @@ from sklearn.model_selection import train_test_split
 from src.config.path_config import *
 from src.utils.csv_utils import create_dataset_csv
 from src.utils.data_loader_utils import load_and_preprocess_data
-from src.utils.model_utils import F1MetricsCallback
 from src.experiments.baselines.MobileNetV3Large.MobileNetV3LargeBaselineExperiment import MobileNetV3LargeBaselineExperiment
 from src.experiments.baselines.MobileNetV3Large.MobileNetV3LargeAugumentedExperiment import MobileNetV3LargeAugumentedExperiment
 
@@ -78,10 +77,6 @@ def main():
     )
 
     print(f"Data split - Train: {X_train.shape}, Val: {X_val.shape}, Test: {X_test.shape}")
-
-    # Ensure output directories exist
-    OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
-    MODEL_FOLDER.mkdir(parents=True, exist_ok=True)
 
     # Run experiments
     baseline_metrics = None

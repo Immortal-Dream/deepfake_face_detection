@@ -2,6 +2,9 @@ from src.experiments.BaseExperiment import BaseExperiment
 from src.utils.model_utils import F1MetricsCallback
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.applications import MobileNetV3Large
+from tensorflow.keras.layers import Dense, Flatten, Dropout
+from tensorflow.keras.models import Model
 
 
 class MobileNetV3LargeAugumentedExperiment(BaseExperiment):
@@ -49,3 +52,27 @@ class MobileNetV3LargeAugumentedExperiment(BaseExperiment):
         )
 
         return history
+
+    def create_model(self, num_classes: int):
+        input_shape = (self.config['image_size'], self.config['image_size'], 3)
+
+        print("Creating MobileNetV3Large model...")
+        base_model = MobileNetV3Large(
+            weights='imagenet',
+            include_top=False,
+            input_shape=input_shape
+        )
+
+        x = Flatten()(base_model.output)
+        x = Dense(512, activation='relu')(x)
+        x = Dropout(0.45)(x)
+        output = Dense(num_classes, activation='softmax')(x)
+
+        model = Model(inputs=base_model.input, outputs=output)
+        model.compile(
+            loss='categorical_crossentropy',
+            optimizer='adam',
+            metrics=['accuracy']
+        )
+
+        self.model = model

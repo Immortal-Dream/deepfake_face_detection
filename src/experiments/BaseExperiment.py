@@ -1,3 +1,4 @@
+import os
 import warnings
 import numpy as np
 import pandas as pd
@@ -5,15 +6,17 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from datetime import datetime
 from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score, accuracy_score
+from pathlib import Path
 from src.config.path_config import OUTPUT_FOLDER, MODEL_FOLDER
-from src.utils.model_utils import create_mobilenet_model, F1MetricsCallback
+from src.utils.model_utils import F1MetricsCallback
 
 warnings.filterwarnings('ignore')
 
 
 class BaseExperiment:
     """
-    Base class that defines the structure for an experiment.
+    Base abstract class that defines the structure for an experiment.
+    Subclasses must implement create_model() and train() methods.
     """
 
     def __init__(self, experiment_name: str, config: dict):
@@ -32,32 +35,38 @@ class BaseExperiment:
         self.output_dir = OUTPUT_FOLDER / self.experiment_name
         self._setup_directories()
 
-    def train(self, X_train, y_train, X_val, y_val, f1_callback):
+    def create_model(self, num_classes: int):
         """
-        Main training loop for the experiment.
-        Must be implemented by subclasses.
+        Create and compile the model. Must be implemented by subclasses.
+
+        Args:
+            num_classes: Number of output classes
+
+        Raises:
+            NotImplementedError: If not implemented by subclass
+        """
+        raise NotImplementedError("Subclasses must implement create_model method")
+
+    def train(self, X_train, y_train, X_val, y_val, f1_callback: F1MetricsCallback):
+        """
+        Main training loop for the experiment. Must be implemented by subclasses.
 
         Args:
             X_train, y_train: Training data
             X_val, y_val: Validation data
-            f1_callback: F1MetricsCallback instance
-        """
+            f1_callback: Callback instance for tracking F1 scores
 
-        raise NotImplementedError("Subclasses must implement the train method")
+        Raises:
+            NotImplementedError: If not implemented by subclass
+        """
+        raise NotImplementedError("Subclasses must implement train method")
 
     def _setup_directories(self):
         """Create experiment output directory structure."""
         self.output_dir.mkdir(parents=True, exist_ok=True)
         print(f"Experiment output directory: {self.output_dir}")
 
-    def create_model(self, num_classes: int):
-        """Create and compile the model."""
-        self.model = create_mobilenet_model(
-            num_classes,
-            input_shape=(self.config['image_size'], self.config['image_size'], 3)
-        )
-
-    def evaluate(self, X_test, y_test, label_dict):
+    def evaluate(self, X_test, y_test, label_dict: dict):
         """
         Evaluate model and compute metrics.
 
@@ -88,7 +97,7 @@ class BaseExperiment:
 
         return self.metrics
 
-    def plot_confusion_matrix(self, X_test, y_test, label_dict):
+    def plot_confusion_matrix(self, X_test, y_test, label_dict: dict):
         """Generate and save confusion matrix plot."""
         y_pred = self.model.predict(X_test, verbose=0)
         y_pred_labels = np.argmax(y_pred, axis=1)
@@ -112,7 +121,7 @@ class BaseExperiment:
         plt.show()
         print(f"Confusion matrix saved to {save_path}")
 
-    def plot_f1_curves(self, f1_callback):
+    def plot_f1_curves(self, f1_callback: F1MetricsCallback):
         """Plot training and validation F1 score curves."""
         plt.figure(figsize=(10, 5))
 
@@ -153,9 +162,7 @@ class BaseExperiment:
         self.model.save(model_path)
         print(f"Model saved to {model_path}")
 
-
-
-    def run(self, X_train, y_train, X_val, y_val, X_test, y_test, label_dict):
+    def run(self, X_train, y_train, X_val, y_val, X_test, y_test, label_dict: dict):
         """
         Execute the complete experiment workflow.
 
@@ -165,15 +172,17 @@ class BaseExperiment:
             X_test, y_test: Test data
             label_dict: Label mapping dictionary
         """
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"STARTING EXPERIMENT: {self.experiment_name}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         # Create model
         self.create_model(len(label_dict))
 
-        # Train model
+        # Create F1 callback
         f1_callback = F1MetricsCallback((X_train, y_train), (X_val, y_val))
+
+        # Train model
         self.history = self.train(X_train, y_train, X_val, y_val, f1_callback)
 
         # Evaluate model
@@ -190,8 +199,8 @@ class BaseExperiment:
         self.save_metrics_to_csv()
         self.save_model()
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"EXPERIMENT COMPLETED: {self.experiment_name}")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
         return metrics
