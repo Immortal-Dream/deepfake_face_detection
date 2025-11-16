@@ -7,11 +7,8 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 from PIL import Image
-import torch
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms
-import cv2
-from typing import List, Tuple, Optional, Union
+from tensorflow.keras.preprocessing.image import load_img, img_to_array
+from tensorflow.keras.utils import to_categorical
 import warnings
 from src.config.path_config import RVF10K_ROOT
 warnings.filterwarnings('ignore')
@@ -20,6 +17,32 @@ warnings.filterwarnings('ignore')
 DATA_ROOT = Path("data/rvf10k")
 TRAIN_CSV = DATA_ROOT / "train.csv"
 VALID_CSV = DATA_ROOT / "valid.csv"
+
+def load_and_preprocess_data(csv_path, height=224, width=224):
+    """
+    Load images from CSV and preprocess for training.
+    Returns: X (images), y (one-hot labels), label_dict (name->id mapping)
+    """
+    print(f"Loading images from {csv_path}...")
+    data = pd.read_csv(csv_path)
+
+    label_names = data['label'].unique()
+    label_dict = {name: idx for idx, name in enumerate(label_names)}
+    print(f"Classes found: {label_dict}")
+
+    y = data['label'].map(label_dict).values
+    y = to_categorical(y, num_classes=len(label_dict))
+
+    X = np.empty((data.shape[0], height, width, 3), dtype=np.float32)
+    for i, img_path in enumerate(data['image'].values):
+        if i % 100 == 0:
+            print(f"Loading image {i + 1}/{data.shape[0]}")
+        img = load_img(img_path, target_size=(height, width))
+        img_array = img_to_array(img)
+        X[i] = img_array
+
+    print(f"Data loaded: X.shape={X.shape}, y.shape={y.shape}")
+    return X, y, label_dict
 
 
 def load_image_list_from_csv(csv_path, return_labels=False):

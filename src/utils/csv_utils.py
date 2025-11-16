@@ -2,10 +2,53 @@
 Simplify CSV file format for deepfake detection dataset
 Extracts only filename, label, and label_str columns
 """
+import csv
+import os
 
 import pandas as pd
 from pathlib import Path
 import argparse
+
+def create_dataset_csv(data_dirs, output_csv):
+    """
+    Create CSV file containing image paths and labels from directories.
+    Expected directory structure: data_dir/[class_name]/[images...]
+    """
+    print(f"Creating dataset CSV from directories: {data_dirs}")
+
+    output_csv = Path(output_csv)
+    if output_csv.exists():
+        output_csv.unlink()
+        print(f"Removed existing {output_csv}")
+
+    class_mapping = {
+        'fake': 'Fake',
+        'real': 'Real',
+        'Fake': 'Fake',
+        'Real': 'Real',
+    }
+
+    with open(output_csv, 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(['image', 'label'])
+
+        for data_dir in data_dirs:
+            data_dir = Path(data_dir)
+            if not data_dir.exists():
+                print(f"Warning: Directory {data_dir} does not exist, skipping...")
+                continue
+
+            for root, dirs, files in os.walk(data_dir):
+                root_path = Path(root)
+                for file_name in files:
+                    if file_name.lower().endswith(('.jpg', '.png', '.jpeg')):
+                        image_path = root_path / file_name
+                        label = root_path.name
+                        mapped_label = class_mapping.get(label, label)
+                        writer.writerow([str(image_path), mapped_label])
+
+    print(f"Dataset CSV created: {output_csv}")
+    return output_csv
 
 
 def simplify_csv(input_csv_path, output_csv_path=None):
