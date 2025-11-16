@@ -1,0 +1,2 @@
+precision,recall,f1_score,accuracy,timestamp,experiment_name,epochs,batch_size,image_size,test_split,val_split
+0.8009419709893058,0.7026666666666667,0.678703678224179,0.7026666666666667,2025-11-16 12:46:59,MobileNetV3Large_augumented,15,32,224,0.3,0.5
