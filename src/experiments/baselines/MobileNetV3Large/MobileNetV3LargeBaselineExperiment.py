@@ -1,5 +1,4 @@
 from src.experiments.BaseExperiment import BaseExperiment
-from src.utils.model_utils import F1MetricsCallback
 from tensorflow.keras.applications import MobileNetV3Large
 from tensorflow.keras.layers import Dense, Flatten, Dropout
 from tensorflow.keras.models import Model

@@ -1,14 +1,11 @@
-import os
 import warnings
 import numpy as np
 import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
 from datetime import datetime
-from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score, accuracy_score
-from pathlib import Path
+from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
 from src.config.path_config import OUTPUT_FOLDER, MODEL_FOLDER
-from src.utils.model_utils import F1MetricsCallback
+from src.services.F1MetricsCallback import F1MetricsCallback
+from src.services.plot_service import PlotService
 
 warnings.filterwarnings('ignore')
 
@@ -33,8 +30,10 @@ class BaseExperiment:
         self.history = None
         self.metrics = {}
         self.output_dir = OUTPUT_FOLDER / self.experiment_name
+        self.plotter = PlotService(experiment_name, self.output_dir)
         self._setup_directories()
 
+    # $Requires$ customization according to the model structure of the specific method.
     def create_model(self, num_classes: int):
         """
         Create and compile the model. Must be implemented by subclasses.
@@ -47,6 +46,7 @@ class BaseExperiment:
         """
         raise NotImplementedError("Subclasses must implement create_model method")
 
+    # $Requires$ customization according to the model training process of the specific method.
     def train(self, X_train, y_train, X_val, y_val, f1_callback: F1MetricsCallback):
         """
         Main training loop for the experiment. Must be implemented by subclasses.
@@ -61,10 +61,56 @@ class BaseExperiment:
         """
         raise NotImplementedError("Subclasses must implement train method")
 
-    def _setup_directories(self):
-        """Create experiment output directory structure."""
-        self.output_dir.mkdir(parents=True, exist_ok=True)
-        print(f"Experiment output directory: {self.output_dir}")
+    # $Could$ be customized according to specific pipeline.
+    def run(self, X_train, y_train, X_val, y_val, X_test, y_test, label_dict: dict):
+        """
+        Execute the complete experiment workflow.
+
+        Args:
+            X_train, y_train: Training data
+            X_val, y_val: Validation data
+            X_test, y_test: Test data
+            label_dict: Label mapping dictionary
+        """
+        print(f"\n{'=' * 60}")
+        print(f"STARTING EXPERIMENT: {self.experiment_name}")
+        print(f"{'=' * 60}")
+
+        # Create model
+        self.create_model(len(label_dict))
+
+        # Create F1 callback
+        f1_callback = F1MetricsCallback((X_train, y_train), (X_val, y_val))
+
+        # Train model
+        self.history = self.train(X_train, y_train, X_val, y_val, f1_callback)
+
+        # Evaluate model
+        metrics = self.evaluate(X_test, y_test, label_dict)
+        print("\nFinal Metrics:")
+        for key, value in metrics.items():
+            print(f"  {key}: {value}")
+
+        # Plot results using the decoupled plotter
+        self.plotter.plot_f1_curves(f1_callback)
+        self.plotter.plot_confusion_matrix(self.model, X_test, y_test, label_dict)
+
+        # Save results
+        self.save_metrics_to_csv()
+        self.save_model()
+
+        print(f"\n{'=' * 60}")
+        print(f"EXPERIMENT COMPLETED: {self.experiment_name}")
+        print(f"{'=' * 60}\n")
+
+        return metrics
+
+    # This method is universal for all Keras models
+    def save_model(self):
+        """Save the trained model."""
+        model_path = MODEL_FOLDER / f'{self.experiment_name}_model.h5'
+        self.model.save(model_path)
+        print(f"Model saved to {model_path}")
 
     def evaluate(self, X_test, y_test, label_dict: dict):
         """
@@ -97,51 +143,6 @@ class BaseExperiment:
 
         return self.metrics
 
-    def plot_confusion_matrix(self, X_test, y_test, label_dict: dict):
-        """Generate and save confusion matrix plot."""
-        y_pred = self.model.predict(X_test, verbose=0)
-        y_pred_labels = np.argmax(y_pred, axis=1)
-        y_true_labels = np.argmax(y_test, axis=1)
-        cm = confusion_matrix(y_true_labels, y_pred_labels)
-
-        plt.figure(figsize=(8, 6))
-        sns.heatmap(
-            cm, annot=True, fmt='g',
-            xticklabels=label_dict.keys(),
-            yticklabels=label_dict.keys(),
-            cmap='Blues'
-        )
-        plt.xlabel('Predicted')
-        plt.ylabel('True')
-        plt.title(f'Confusion Matrix - {self.experiment_name}')
-        plt.tight_layout()
-
-        save_path = self.output_dir / f'{self.experiment_name}_confusion_matrix.png'
-        plt.savefig(save_path, dpi=300)
-        plt.show()
-        print(f"Confusion matrix saved to {save_path}")
-
-    def plot_f1_curves(self, f1_callback: F1MetricsCallback):
-        """Plot training and validation F1 score curves."""
-        plt.figure(figsize=(10, 5))
-
-        epochs = range(1, len(f1_callback.train_f1_scores) + 1)
-        plt.plot(epochs, f1_callback.train_f1_scores,
-                 label='Training F1', color='red', linestyle='-')
-        plt.plot(epochs, f1_callback.val_f1_scores,
-                 label='Validation F1', color='blue', linestyle='-')
-
-        plt.title(f'Training & Validation F1 Score - {self.experiment_name}')
-        plt.xlabel('Epoch')
-        plt.ylabel('F1 Score')
-        plt.legend()
-        plt.grid(True)
-
-        save_path = self.output_dir / f'{self.experiment_name}_f1_curves.png'
-        plt.savefig(save_path, dpi=300)
-        plt.show()
-        print(f"F1 curves saved to {save_path}")
-
     def save_metrics_to_csv(self):
         """Save metrics and configuration to CSV log file."""
         metrics_df = pd.DataFrame([self.metrics])
@@ -156,51 +157,7 @@ class BaseExperiment:
 
         print(f"Metrics log saved to {csv_path}")
 
-    def save_model(self):
-        """Save the trained model."""
-        model_path = MODEL_FOLDER / f'{self.experiment_name}_model.h5'
-        self.model.save(model_path)
-        print(f"Model saved to {model_path}")
-
-    def run(self, X_train, y_train, X_val, y_val, X_test, y_test, label_dict: dict):
-        """
-        Execute the complete experiment workflow.
-
-        Args:
-            X_train, y_train: Training data
-            X_val, y_val: Validation data
-            X_test, y_test: Test data
-            label_dict: Label mapping dictionary
-        """
-        print(f"\n{'=' * 60}")
-        print(f"STARTING EXPERIMENT: {self.experiment_name}")
-        print(f"{'=' * 60}")
-
-        # Create model
-        self.create_model(len(label_dict))
-
-        # Create F1 callback
-        f1_callback = F1MetricsCallback((X_train, y_train), (X_val, y_val))
-
-        # Train model
-        self.history = self.train(X_train, y_train, X_val, y_val, f1_callback)
-
-        # Evaluate model
-        metrics = self.evaluate(X_test, y_test, label_dict)
-        print("\nFinal Metrics:")
-        for key, value in metrics.items():
-            print(f"  {key}: {value}")
-
-        # Plot results
-        self.plot_f1_curves(f1_callback)
-        self.plot_confusion_matrix(X_test, y_test, label_dict)
-
-        # Save results
-        self.save_metrics_to_csv()
-        self.save_model()
-
-        print(f"\n{'=' * 60}")
-        print(f"EXPERIMENT COMPLETED: {self.experiment_name}")
-        print(f"{'=' * 60}\n")
-
-        return metrics
+    def _setup_directories(self):
+        """Create experiment output directory structure."""
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        print(f"Experiment output directory: {self.output_dir}")

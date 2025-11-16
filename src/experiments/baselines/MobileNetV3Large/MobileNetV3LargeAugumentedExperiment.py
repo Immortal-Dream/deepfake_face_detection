@@ -1,5 +1,4 @@
 from src.experiments.BaseExperiment import BaseExperiment
-from src.utils.model_utils import F1MetricsCallback
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.applications import MobileNetV3Large

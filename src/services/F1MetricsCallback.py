@@ -1,36 +1,6 @@
 import numpy as np
-from tensorflow.keras.applications import MobileNetV3Large
-from tensorflow.keras.layers import Dense, Flatten, Dropout
-from tensorflow.keras.models import Model
-from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import Callback
 from sklearn.metrics import f1_score
-
-
-def create_mobilenet_model(num_classes, input_shape=(224, 224, 3)):
-    """
-    Create MobileNetV3Large model with custom classification head.
-    """
-    print("Creating MobileNetV3Large model...")
-    base_model = MobileNetV3Large(
-        weights='imagenet',
-        include_top=False,
-        input_shape=input_shape
-    )
-
-    x = Flatten()(base_model.output)
-    x = Dense(512, activation='relu')(x)
-    x = Dropout(0.45)(x)
-    output = Dense(num_classes, activation='softmax')(x)
-
-    model = Model(inputs=base_model.input, outputs=output)
-    model.compile(
-        loss='categorical_crossentropy',
-        optimizer='adam',
-        metrics=['accuracy']
-    )
-
-    return model
 
 
 class F1MetricsCallback(Callback):
