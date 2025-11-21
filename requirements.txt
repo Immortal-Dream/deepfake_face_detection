@@ -9,3 +9,4 @@ tensorflow==2.15.0
 pathlib~=1.0.1
 seaborn~=0.12.2
 matplotlib~=3.7.0
+tqdm
