@@ -43,7 +43,8 @@ class Train:
         print(lr)
         if self.writer:
             self.writer.add_scalar('lr', lr, self.epoch)
-        pbar = tqdm(train_loader(), ncols=80)
+        pbar = tqdm(train_loader, ncols=80)
+
         for data in pbar:
             inputs, targets = self.pre_data(data)
             self.optimizer.zero_grad()
@@ -91,7 +92,7 @@ class Train:
         y = {}
         ims = []
         with torch.no_grad():
-            pbar = tqdm(test_loader(), ncols=80)
+            pbar = tqdm(test_loader, ncols=80)
             for data in pbar:
                 inputs, targets = self.pre_data(data)
                 outputs = self.net(inputs)

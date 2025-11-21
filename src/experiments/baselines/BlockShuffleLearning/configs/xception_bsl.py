@@ -51,14 +51,17 @@ if is_resume:
 print('Init data...')
 from configs import rvf10k
 
-def train_loader():
-    return rvf10k.dataloader_train
+# def train_loader():
+#     return rvf10k.dataloader_train
 
-def val_loader():
-    return rvf10k.dataloader_val
+# def val_loader():
+#     return rvf10k.dataloader_val
 
-def test_loader():
-    return rvf10k.dataloader_test
+# def test_loader():
+#     return rvf10k.dataloader_test
+train_loader = rvf10k.dataloader_train
+val_loader = rvf10k.dataloader_val
+test_loader = rvf10k.dataloader_test
 
 
 
