@@ -50,6 +50,11 @@ pip install -r requirements.txt
 ```commandline
 python -m src.experiments.baselines.MobileNetV3Large.main --epochs 15
 ```
+- Method 3: 
+```commandline
+cd src/experiments/baselines/BlockShuffleLearning/
+python main.py --epochs 15
+```
 
 -----
 
