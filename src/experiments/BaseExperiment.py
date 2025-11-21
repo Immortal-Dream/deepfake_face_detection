@@ -2,7 +2,7 @@ import warnings
 import numpy as np
 import pandas as pd
 from datetime import datetime
-from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score, accuracy_score
+from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
 from src.config.path_config import OUTPUT_FOLDER, MODEL_FOLDER, OVERALL_FOLDER
 from src.services.F1MetricsCallback import F1MetricsCallback
 from src.services.plot_service import PlotService
