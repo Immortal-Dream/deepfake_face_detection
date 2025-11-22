@@ -45,8 +45,11 @@ pip install -r requirements.txt
 ```
 
 ### 3\. Run Experiments
-
-- Method 1: 
+- Method 1:
+```commandline
+python -m src.experiments.baselines.ViT.main
+```
+- Method 2: 
 ```commandline
 python -m src.experiments.baselines.MobileNetV3Large.main --epochs 15
 ```

@@ -1,0 +1,2 @@
+precision,recall,f1_score,accuracy,timestamp,experiment_name,epochs,batch_size,learning_rate,image_size,test_split,val_split
+0.9133459298756892,0.9133333333333333,0.9133250085382514,0.9133333333333333,2025-11-22 15:38:08,ViT_baseline,5,16,0.0003,224,0.3,0.5
