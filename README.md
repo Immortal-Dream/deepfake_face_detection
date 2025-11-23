@@ -58,6 +58,10 @@ python -m src.experiments.baselines.MobileNetV3Large.main --epochs 15
 cd src/experiments/baselines/BlockShuffleLearning/
 python main.py --epochs 15
 ```
+ - Method 4:
+```commandline
+python -m src.experiments.baselines.ShuffleNetV2.main --epochs 15 --batch_size 32 --lr 1e-3 --image_size 224
+```
 
 -----
 

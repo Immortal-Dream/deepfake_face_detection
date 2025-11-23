@@ -1,0 +1,2 @@
+experiment_name,precision,recall,f1_score,accuracy,timestamp,epochs,batch_size,image_size,lr,test_split,val_split
+ShuffleNetV2_baseline,0.9475632814014667,0.9473333333333334,0.9473265677235877,0.9473333333333334,2025-11-22 23:23:57,5,32,224,0.001,0.3,0.5

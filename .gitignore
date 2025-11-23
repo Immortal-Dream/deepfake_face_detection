@@ -208,3 +208,11 @@ __marimo__/
 
 # macOS system files
 .DS_Store
+
+
+PPLinstruction.md
+data/output/ShuffleNetV2_dataset.csv
+data/output/ShuffleNetV2_pytorch/metrics_log.csv
+data/output/ShuffleNetV2_pytorch/ShuffleNetV2_pytorch_confusion_matrix.png
+data/output/ShuffleNetV2_pytorch/ShuffleNetV2_pytorch_f1_curves.png
+models/ShuffleNetV2_pytorch.pth
