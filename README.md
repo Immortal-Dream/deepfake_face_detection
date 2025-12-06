@@ -63,6 +63,12 @@ python main.py
 python -m src.experiments.baselines.ShuffleNetV2.main --epochs 15 --batch_size 32 --lr 1e-3 --image_size 224
 ```
 
+### 4\. Run GradCAM Analysis
+- Method 1:
+```commandline
+python -m src.experiments.baselines.ViT.grad_cam
+```
+
 -----
 
 ### **Note on PyTorch (torch)**
