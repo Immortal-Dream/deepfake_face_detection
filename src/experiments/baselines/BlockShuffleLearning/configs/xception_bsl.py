@@ -49,19 +49,19 @@ if is_resume:
 
 
 print('Init data...')
-from configs import rvf10k
 
-# def train_loader():
-#     return rvf10k.dataloader_train
+# ------------------------------
+# DEFINE DATASET NAME HERE
+# ------------------------------
+DATASET_NAME = "rvf10k"   # ← change each run
 
-# def val_loader():
-#     return rvf10k.dataloader_val
+# ------------------------------
+# BUILD DATALOADERS
+# ------------------------------
+from configs.rvf10k import build_dataloaders
+train_loader, val_loader, test_loader = build_dataloaders(DATASET_NAME)
 
-# def test_loader():
-#     return rvf10k.dataloader_test
-train_loader = rvf10k.dataloader_train
-val_loader = rvf10k.dataloader_val
-test_loader = rvf10k.dataloader_test
+
 
 
 

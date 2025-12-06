@@ -1,37 +1,43 @@
 from pathlib import Path
 
-"""
-Path Configuration for Deepfake Face Detection Project
-This module contains all path constants for easy access to data directories.
-"""
-
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 DATA_ROOT = PROJECT_ROOT / "data"
-SRC_ROOT = PROJECT_ROOT / "src"
-CONFIG_ROOT = SRC_ROOT / "config"
 
-# DL Models Layer
-MODEL_FOLDER = PROJECT_ROOT / "models"
+# -----------------------------
+# DATASET ROOTS
+# -----------------------------
+DATASET_ROOTS = {
+    "rvf10k": DATA_ROOT / "rvf10k",
+    "STARGAN": DATA_ROOT / "STARGAN",
+    "StableDiffusion": DATA_ROOT / "StableDiffusion",
+    "dalle2": DATA_ROOT / "dalle2",
+    "latent_diffusion": DATA_ROOT / "latent_diffusion",
+    "midjourney": DATA_ROOT / "midjourney",
+    "taming_transformer_VQGAN": DATA_ROOT / "taming_transformer_VQGAN",
+}
 
-# Dataset root
-RVF10K_ROOT = DATA_ROOT / "rvf10k"
+# -----------------------------
+#  FUNCTION — RETURNS PATHS FOR ANY DATASET
+# -----------------------------
+def get_dataset_paths(dataset_name: str):
+    root = DATASET_ROOTS.get(dataset_name)
 
-# Training data paths
-TRAIN_ROOT = RVF10K_ROOT / "train"
-TRAIN_FAKE = TRAIN_ROOT / "fake"
-TRAIN_REAL = TRAIN_ROOT / "real"
+    if root is None:
+        raise ValueError(f"[ERROR] Unknown dataset: {dataset_name}")
 
-# Validation data paths
-VALID_ROOT = RVF10K_ROOT / "valid"
-VALID_FAKE = VALID_ROOT / "fake"
-VALID_REAL = VALID_ROOT / "real"
+    return {
+        "ROOT": root,
+        "TRAIN_ROOT": root / "train",
+        "VALID_ROOT": root / "valid",
+        "TRAIN_CSV": root / "train.csv",
+        "VALID_CSV": root / "valid.csv",
+    }
 
-# CSV files
-TRAIN_CSV = RVF10K_ROOT / "train.csv"
-VALID_CSV = RVF10K_ROOT / "valid.csv"
-
-# Experiment Output Folder
+# -----------------------------
+# OUTPUT FOLDERS
+# -----------------------------
 OUTPUT_FOLDER = DATA_ROOT / "output"
-
-# Leader board result path
 OVERALL_FOLDER = OUTPUT_FOLDER / "overall"
+
+# Models folder (required by BaseExperiment)
+MODEL_FOLDER = PROJECT_ROOT / "models"

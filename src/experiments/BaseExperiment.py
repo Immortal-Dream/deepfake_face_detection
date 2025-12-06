@@ -30,7 +30,7 @@ class BaseExperiment:
         self.history = None
         self.metrics = {}
         self.output_dir = OUTPUT_FOLDER / self.experiment_name
-        self.plotter = PlotService(experiment_name, self.output_dir)
+        self.plotter = PlotService(self.experiment_name, self.output_dir, config)
         self._setup_directories()
 
     # $Requires$ customization according to the model structure of the specific method.

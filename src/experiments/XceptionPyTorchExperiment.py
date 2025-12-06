@@ -4,6 +4,7 @@ import pandas as pd
 from datetime import datetime
 from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score
 from src.experiments.BaseExperiment import BaseExperiment
+from src.paths import OVERALL_FOLDER
 
 class XceptionPyTorchExperiment(BaseExperiment):
     """
@@ -11,6 +12,10 @@ class XceptionPyTorchExperiment(BaseExperiment):
     """
 
     def __init__(self, config, model, device):
+
+        dataset = config.get("dataset_name", "UNKNOWN")
+        exp_name = f"Xception_BSL_baseline_{dataset}"
+
         super().__init__("Xception_BSL_baseline", config)
         self.model = model
         self.device = device
@@ -82,47 +87,49 @@ class XceptionPyTorchExperiment(BaseExperiment):
         return self.metrics
 
 
-        def update_leaderboard(self):
-            """Update or append experiment metrics in the leaderboard safely."""
+    def update_leaderboard(self):
+        """Update or append experiment metrics in the leaderboard safely."""
 
-            OVERALL_FOLDER.mkdir(parents=True, exist_ok=True)
-            leaderboard_path = OVERALL_FOLDER / "leader_board.csv"
+        OVERALL_FOLDER.mkdir(parents=True, exist_ok=True)
 
-            # Row for this experiment
-            row = {
-                "experiment_name": self.experiment_name,
-                "precision": self.metrics["precision"],
-                "recall": self.metrics["recall"],
-                "f1_score": self.metrics["f1_score"],
-                "accuracy": self.metrics["accuracy"],
-                "timestamp": self.metrics["timestamp"],
-            }
+        dataset = self.config.get("dataset_name", "unknown")
+        leaderboard_path = OVERALL_FOLDER / f"{dataset}_leaderboard.csv"
 
-            new_row_df = pd.DataFrame([row])
+        # Row for this experiment
+        row = {
+            "experiment_name": self.experiment_name,
+            "precision": self.metrics["precision"],
+            "recall": self.metrics["recall"],
+            "f1_score": self.metrics["f1_score"],
+            "accuracy": self.metrics["accuracy"],
+            "timestamp": self.metrics["timestamp"],
+        }
 
-            # Case 1: Leaderboard exists -> update OR append
-            if leaderboard_path.exists():
-                df = pd.read_csv(leaderboard_path)
+        new_row_df = pd.DataFrame([row])
 
-                if self.experiment_name in df["experiment_name"].values:
-                    # overwrite ONLY your row
-                    for col in row:
-                        df.loc[df["experiment_name"] == self.experiment_name, col] = row[col]
+        # Case 1: Leaderboard exists -> update OR append
+        if leaderboard_path.exists():
+            df = pd.read_csv(leaderboard_path)
 
-                    print(f"[INFO] Updated existing entry for {self.experiment_name}")
-                else:
-                    # append new row
-                    df = pd.concat([df, new_row_df], ignore_index=True)
-                    print(f"[INFO] Added new entry for {self.experiment_name}")
+            if self.experiment_name in df["experiment_name"].values:
+                # overwrite ONLY your row
+                for col in row:
+                    df.loc[df["experiment_name"] == self.experiment_name, col] = row[col]
 
-            # Case 2: Leaderboard does not exist -> create new file
+                print(f"[INFO] Updated existing entry for {self.experiment_name}")
             else:
-                df = new_row_df
-                print(f"[INFO] Created new leaderboard file")
+                # append new row
+                df = pd.concat([df, new_row_df], ignore_index=True)
+                print(f"[INFO] Added new entry for {self.experiment_name}")
 
-            # Sort by f1 score descending
-            df = df.sort_values(by="f1_score", ascending=False).reset_index(drop=True)
+        # Case 2: Leaderboard does not exist -> create new file
+        else:
+            df = new_row_df
+            print(f"[INFO] Created new leaderboard file")
 
-            # Save
-            df.to_csv(leaderboard_path, index=False)
-            print(f"[INFO] Leaderboard updated → {leaderboard_path}")
+        # Sort by f1 score descending
+        df = df.sort_values(by="f1_score", ascending=False).reset_index(drop=True)
+
+        # Save
+        df.to_csv(leaderboard_path, index=False)
+        print(f"[INFO] Leaderboard updated → {leaderboard_path}")

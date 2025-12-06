@@ -14,16 +14,11 @@ class PlotService:
     Handles all visualization tasks for experiments.
     """
 
-    def __init__(self, experiment_name: str, output_dir: Path):
-        """
-        Initialize plotter with experiment metadata.
-
-        Args:
-            experiment_name: Name of the experiment
-            output_dir: Output directory for saving plots
-        """
+    def __init__(self, experiment_name: str, output_dir: Path, experiment_config: dict):
         self.experiment_name = experiment_name
         self.output_dir = output_dir
+        self.config = experiment_config   # ✅ correct
+
 
     def plot_confusion_matrix(self, model, X_test, y_test, label_dict: dict):
         """
@@ -124,7 +119,11 @@ class PlotService:
         plt.ylabel("True")
         plt.title(f"Confusion Matrix - {self.experiment_name}")
 
-        save_path = self.output_dir / f"{self.experiment_name}_confusion_matrix.png"
+        dataset = self.config.get("dataset_name", "unknown")
+
+
+        save_path = self.output_dir / f"{dataset}_confusion_matrix.png"
+
         plt.savefig(save_path, dpi=300)
         plt.close()
         print(f"[INFO] Confusion matrix saved to {save_path}")
@@ -155,7 +154,10 @@ class PlotService:
         plt.grid(True)
         plt.legend()
 
-        save_path = self.output_dir / f"{self.experiment_name}_f1_curve_torch.png"
+        dataset = self.config.get("dataset_name", "unknown")
+
+        save_path = self.output_dir / f"{dataset}_f1_curve.png"
+
         plt.savefig(save_path, dpi=300)
         plt.close()
 

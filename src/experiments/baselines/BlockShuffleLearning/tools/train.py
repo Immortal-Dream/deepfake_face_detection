@@ -154,10 +154,10 @@ class Train:
         # ---- EARLY STOPPING: All metrics must exceed threshold ----
         TARGET = 0.80
 
-        if precision >= TARGET and recall >= TARGET and val_f1 >= TARGET:
-            print("\n🎉 EARLY STOP TRIGGERED!")
-            print(f"Precision = {precision:.4f}  Recall = {recall:.4f}  F1 = {val_f1:.4f}")
-            self.experiment.should_stop = True
+        # if precision >= TARGET and recall >= TARGET and val_f1 >= TARGET:
+        #     print("\n🎉 EARLY STOP TRIGGERED!")
+        #     print(f"Precision = {precision:.4f}  Recall = {recall:.4f}  F1 = {val_f1:.4f}")
+        #     self.experiment.should_stop = True
 
         for key in outputs:
             x[key] = x[key].tolist()

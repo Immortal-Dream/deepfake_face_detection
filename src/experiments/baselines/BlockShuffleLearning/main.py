@@ -1,3 +1,5 @@
+DATASET_NAME = "rvf10k"  # change each run
+
 import sys, os
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
@@ -9,13 +11,22 @@ from configs.xception_bsl import *
 from src.experiments.XceptionPyTorchExperiment import XceptionPyTorchExperiment
 import argparse
 
+
+from configs.rvf10k import build_dataloaders
+train_loader, val_loader, test_loader = build_dataloaders(DATASET_NAME)
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--epochs", type=int, default=15)
 args = parser.parse_args()
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
 config = {
     "epochs": args.epochs,
-    "batch_size": 32
+    "batch_size": 32,
+    "dataset_name": DATASET_NAME,   # <--- ADD THIS
 }
 
 print(f"Training for {args.epochs} epochs...")
@@ -33,9 +44,9 @@ exp.f1_scores = []          # ensure list exists
 for epoch in range(args.epochs):
     train.train(train_loader)
     train.val(val_loader)
-    if hasattr(exp, "should_stop") and exp.should_stop:
-        print("\n✨ Training stopped because target metrics were reached!")
-        break
+    # if hasattr(exp, "should_stop") and exp.should_stop:
+    #     print("\n✨ Training stopped because target metrics were reached!")
+    #     break
 #print("Training complete.")
 
 # ------------------------------------------------
