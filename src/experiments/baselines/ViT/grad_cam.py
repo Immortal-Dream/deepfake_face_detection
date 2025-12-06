@@ -7,8 +7,9 @@ import torch
 from torchvision import transforms
 from PIL import Image
 import matplotlib.pyplot as plt
+import random
 
-from pytorch_grad_cam import GradCAM
+from pytorch_grad_cam import GradCAM, EigenGradCAM, LayerCAM, HiResCAM
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 from pytorch_grad_cam.utils.image import show_cam_on_image
 
@@ -90,12 +91,16 @@ if __name__ == "__main__":
 
     reverse_label_dict = {v: k for k, v in label_dict.items()}
 
-    X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, random_state=42)
-    X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
+    random_seed = 42
+    random.seed(random_seed)
+    X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, random_state=random_seed)
+    X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=random_seed)
 
     batch_size = 10
-    test_images = X_test[:batch_size]
-    true_labels_one_hot = y_test[:batch_size]
+    random_indices = random.sample(list(range(len(X_test))), batch_size)
+
+    test_images = X_test[random_indices]
+    true_labels_one_hot = y_test[random_indices]
     true_labels = [np.argmax(label) for label in true_labels_one_hot]
 
     predictions = experiment.model.predict(test_images, verbose=0)
@@ -118,32 +123,41 @@ if __name__ == "__main__":
 
     target_layer_gradcam = experiment.vit_model.vit.encoder.layer[-2].output
 
-    results = run_grad_cam_on_images(
-        model=experiment.vit_model,
-        target_layer=target_layer_gradcam,
-        targets_list_for_gradcam=targets_list,
-        input_tensors=tensors,
-        input_images=pil_images,
-        reshape_transform=reshape_transform_vit_huggingface
-    )
+    cam_methods = {
+        "GradCAM": GradCAM,
+        "EigenGradCAM": EigenGradCAM,
+        "LayerCAM": LayerCAM,
+        "HiResCAM": HiResCAM,
+    }
 
-    for i, result in enumerate(results):
-        fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+    for method_name, method in cam_methods.items():
+        results = run_grad_cam_on_images(
+            model=experiment.vit_model,
+            target_layer=target_layer_gradcam,
+            targets_list_for_gradcam=targets_list,
+            input_tensors=tensors,
+            input_images=pil_images,
+            reshape_transform=reshape_transform_vit_huggingface,
+            method=method
+        )
 
-        axes[0].imshow(rgb_images[i])
-        axes[0].set_title(f'Original\nTrue: {reverse_label_dict[true_labels[i]]}', fontsize=12)
-        axes[0].axis('off')
+        for i, result in enumerate(results):
+            fig, axes = plt.subplots(1, 2, figsize=(10, 5))
 
-        axes[1].imshow(result)
-        axes[1].set_title(f'Grad-CAM Result\nPred: {reverse_label_dict[pred_labels[i]]} ({confidences[i]:.1%})', fontsize=12)
-        axes[1].axis('off')
+            axes[0].imshow(rgb_images[i])
+            axes[0].set_title(f'Original\nTrue: {reverse_label_dict[true_labels[i]]}', fontsize=12)
+            axes[0].axis('off')
 
-        plt.suptitle(f'{experiment.experiment_name} Grad-CAM Analysis for Deepfake Detection', fontsize=14, fontweight='bold')
-        plt.tight_layout()
+            axes[1].imshow(result)
+            axes[1].set_title(f'{method_name} Result\nPred: {reverse_label_dict[pred_labels[i]]} ({confidences[i]:.1%})', fontsize=12)
+            axes[1].axis('off')
 
-        output_dir = OUTPUT_FOLDER / experiment.experiment_name / "gradcam"
-        output_dir.mkdir(parents=True, exist_ok=True)
-        save_path = output_dir / f'grad_cam_result_{i}.png'
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+            plt.suptitle(f'{experiment.experiment_name} {method_name} Analysis for Deepfake Detection', fontsize=14, fontweight='bold')
+            plt.tight_layout()
 
-        plt.show()
+            output_dir = OUTPUT_FOLDER / experiment.experiment_name / method_name
+            output_dir.mkdir(parents=True, exist_ok=True)
+            save_path = output_dir / f'result_{i}.png'
+            plt.savefig(save_path, dpi=150, bbox_inches='tight')
+
+            plt.show()
