@@ -73,6 +73,14 @@ class Train:
             x[key] = np.array(x[key])
         for key in targets:
             y[key] = np.array(y[key])
+        from sklearn.metrics import f1_score
+        preds = (x["out"] >= 0.5).astype(int).flatten()
+        labels = y["out"].astype(int).flatten()
+        train_f1 = f1_score(labels, preds)
+
+        if hasattr(self, "experiment"):
+            self.experiment.train_f1_scores.append(train_f1)
+            print(f"[TRAIN F1] {train_f1:.4f} logged.")
         self.evaluation(x, y)
 
 
@@ -121,6 +129,36 @@ class Train:
         for key in targets:
             y[key] = np.array(y[key])
         self.evaluation(x, y)
+        # ---- F1 SCORE LOGGING ----
+        # ---- METRICS ----
+        from sklearn.metrics import precision_score, recall_score, f1_score
+
+        preds = (x["out"] >= 0.5).astype(int).flatten()
+        labels = y["out"].astype(int).flatten()
+
+        precision = precision_score(labels, preds, zero_division=0)
+        recall = recall_score(labels, preds, zero_division=0)
+        val_f1 = f1_score(labels, preds, zero_division=0)
+
+        print(f"[VAL PRECISION] {precision:.4f}")
+        print(f"[VAL RECALL]    {recall:.4f}")
+        print(f"[VAL F1]        {val_f1:.4f}")
+
+        # ---- STORE METRICS IN EXPERIMENT (optional for curves) ----
+        if hasattr(self, "experiment"):
+            self.experiment.val_f1_scores.append(val_f1)
+            print(f"[INFO] Validation F1 logged.")
+        else:
+            print("[WARN] No experiment attached; metrics not recorded.")
+
+        # ---- EARLY STOPPING: All metrics must exceed threshold ----
+        TARGET = 0.80
+
+        if precision >= TARGET and recall >= TARGET and val_f1 >= TARGET:
+            print("\n🎉 EARLY STOP TRIGGERED!")
+            print(f"Precision = {precision:.4f}  Recall = {recall:.4f}  F1 = {val_f1:.4f}")
+            self.experiment.should_stop = True
+
         for key in outputs:
             x[key] = x[key].tolist()
         for key in targets:

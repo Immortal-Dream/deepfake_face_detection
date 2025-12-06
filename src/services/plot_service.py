@@ -4,6 +4,9 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from sklearn.metrics import confusion_matrix
 from src.services.F1MetricsCallback import F1MetricsCallback
+import torch
+from sklearn.metrics import f1_score
+
 
 
 class PlotService:
@@ -83,3 +86,80 @@ class PlotService:
         plt.savefig(save_path, dpi=300)
         plt.show()
         print(f"F1 curves saved to {save_path}")
+
+    def plot_confusion_matrix_torch(self, model, device, test_loader, label_dict):
+        """
+        Confusion matrix for PyTorch models.
+        """
+        all_preds = []
+        all_labels = []
+
+        model.eval()
+        with torch.no_grad():
+            for X, y in test_loader:
+                X = X.to(device)
+                y = y.to(device)
+
+                outputs = model(X)
+
+                # Your model returns a dict with key "out"
+                logits = outputs["out"]
+
+                prob = torch.sigmoid(logits).cpu().numpy()
+                pred = (prob > 0.5).astype(int)
+
+                all_preds.extend(pred.flatten())
+                all_labels.extend(y.cpu().numpy().flatten())
+
+        cm = confusion_matrix(all_labels, all_preds)
+
+        plt.figure(figsize=(8, 6))
+        sns.heatmap(
+            cm, annot=True, fmt='g',
+            xticklabels=label_dict.values(),
+            yticklabels=label_dict.values(),
+            cmap='Blues'
+        )
+        plt.xlabel("Predicted")
+        plt.ylabel("True")
+        plt.title(f"Confusion Matrix - {self.experiment_name}")
+
+        save_path = self.output_dir / f"{self.experiment_name}_confusion_matrix.png"
+        plt.savefig(save_path, dpi=300)
+        plt.close()
+        print(f"[INFO] Confusion matrix saved to {save_path}")
+
+    def plot_f1_curve_torch(self, train_f1, val_f1):
+        """
+        Plot both Training and Validation F1 curves for PyTorch experiments.
+        """
+        if len(train_f1) == 0 and len(val_f1) == 0:
+            print("[INFO] No F1 scores available to plot.")
+            return
+
+        plt.figure(figsize=(10, 5))
+
+        # Plot training F1 if exists
+        if len(train_f1) > 0:
+            plt.plot(range(1, len(train_f1) + 1), train_f1,
+                    label="Training F1", color="red", linewidth=2)
+
+        # Plot validation F1 if exists
+        if len(val_f1) > 0:
+            plt.plot(range(1, len(val_f1) + 1), val_f1,
+                    label="Validation F1", color="blue", linewidth=2)
+
+        plt.xlabel("Epochs")
+        plt.ylabel("F1 Score")
+        plt.title(f"F1 Score Over Training - {self.experiment_name}")
+        plt.grid(True)
+        plt.legend()
+
+        save_path = self.output_dir / f"{self.experiment_name}_f1_curve_torch.png"
+        plt.savefig(save_path, dpi=300)
+        plt.close()
+
+        print(f"[INFO] PyTorch F1 curves saved to: {save_path}")
+
+
+

@@ -14,6 +14,9 @@ class XceptionPyTorchExperiment(BaseExperiment):
         super().__init__("Xception_BSL_baseline", config)
         self.model = model
         self.device = device
+        self.train_f1_scores = []
+        self.val_f1_scores = []
+
 
     def create_model(self, num_classes):
         """Already created in configs.xception_bsl, so skip."""
@@ -103,7 +106,9 @@ class XceptionPyTorchExperiment(BaseExperiment):
 
                 if self.experiment_name in df["experiment_name"].values:
                     # overwrite ONLY your row
-                    df.loc[df["experiment_name"] == self.experiment_name] = row
+                    for col in row:
+                        df.loc[df["experiment_name"] == self.experiment_name, col] = row[col]
+
                     print(f"[INFO] Updated existing entry for {self.experiment_name}")
                 else:
                     # append new row

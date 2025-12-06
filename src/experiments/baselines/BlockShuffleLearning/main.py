@@ -5,13 +5,12 @@ sys.path.insert(0, ROOT)
 
 print("PROJECT ROOT:", ROOT)
 
-
 from configs.xception_bsl import *
 from src.experiments.XceptionPyTorchExperiment import XceptionPyTorchExperiment
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--epochs", type=int, default=5)
+parser.add_argument("--epochs", type=int, default=15)
 args = parser.parse_args()
 
 config = {
@@ -21,22 +20,51 @@ config = {
 
 print(f"Training for {args.epochs} epochs...")
 
-# -----------------------------
-# TRAINING LOOP (your original)
-# -----------------------------
+# ------------------------------------------------
+# ✅ 1. CREATE EXPERIMENT *BEFORE* TRAINING
+# ------------------------------------------------
+exp = XceptionPyTorchExperiment(config, model=net, device=device)
+train.experiment = exp      # <-- link trainer → experiment
+exp.f1_scores = []          # ensure list exists
+
+# ------------------------------------------------
+# ✅ 2. TRAINING LOOP (F1 SCORES NOW LOG CORRECTLY)
+# ------------------------------------------------
 for epoch in range(args.epochs):
     train.train(train_loader)
     train.val(val_loader)
+    if hasattr(exp, "should_stop") and exp.should_stop:
+        print("\n✨ Training stopped because target metrics were reached!")
+        break
+#print("Training complete.")
 
-print("Training complete.")
-
-# -----------------------------
-# EVALUATE WITH EXPERIMENT LOGGING
-# -----------------------------
-exp = XceptionPyTorchExperiment(config, model=net, device=device)
+# ------------------------------------------------
+# ✅ 3. EVALUATE ON TEST SET
+# ------------------------------------------------
 metrics = exp.evaluate(test_loader)
+
+# Save metrics & leaderboard
 exp.save_metrics_to_csv()
 exp.update_leaderboard()
 
 print("FINAL METRICS:")
 print(metrics)
+
+# ------------------------------------------------
+# ✅ 4. GENERATE PLOTS
+# ------------------------------------------------
+exp.plotter.plot_confusion_matrix_torch(
+    model=exp.model,
+    device=exp.device,
+    test_loader=test_loader,
+    label_dict={0: "real", 1: "fake"}
+)
+
+# F1 curve using logged F1 values
+exp.plotter.plot_f1_curve_torch(
+    train_f1=exp.train_f1_scores,
+    val_f1=exp.val_f1_scores
+)
+
+
+print("Plots generated and saved.")
