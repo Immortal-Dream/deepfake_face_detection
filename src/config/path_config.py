@@ -16,6 +16,7 @@ DATASET_ROOTS = {
     "taming_transformer_VQGAN": DATA_ROOT / "taming_transformer_VQGAN",
 }
 
+
 # -----------------------------
 #  FUNCTION — RETURNS PATHS FOR ANY DATASET
 # -----------------------------
@@ -38,6 +39,15 @@ def get_dataset_paths(dataset_name: str):
 # -----------------------------
 OUTPUT_FOLDER = DATA_ROOT / "output"
 OVERALL_FOLDER = OUTPUT_FOLDER / "overall"
-
+RVF10K_ROOT = DATA_ROOT / "rvf10k"
 # Models folder (required by BaseExperiment)
 MODEL_FOLDER = PROJECT_ROOT / "models"
+
+
+# Constants
+rvf10k = "rvf10k"
+midjourney = "midjourney"
+VALID_CSV = 'VALID_CSV'
+VALID_ROOT = "VALID_ROOT"
+TRAIN_ROOT = 'TRAIN_ROOT'
+TRAIN_CSV = 'TRAIN_CSV'
