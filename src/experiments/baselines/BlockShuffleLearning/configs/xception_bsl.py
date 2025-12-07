@@ -53,7 +53,7 @@ print('Init data...')
 # ------------------------------
 # DEFINE DATASET NAME HERE
 # ------------------------------
-DATASET_NAME = "rvf10k"   # ← change each run
+DATASET_NAME = "taming_transformer_VQGAN"   # ← change each run
 
 # ------------------------------
 # BUILD DATALOADERS

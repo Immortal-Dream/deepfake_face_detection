@@ -1,4 +1,4 @@
-DATASET_NAME = "rvf10k"  # change each run
+DATASET_NAME = "taming_transformer_VQGAN"  # change each run
 
 import sys, os
 
