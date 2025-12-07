@@ -131,7 +131,8 @@ def load_image(image_path, resize=None, to_rgb=True):
     return np.array(img)
 
 
-def load_images_from_csv(csv_path, dataset_name, is_train = True, resize=None, max_images=None, verbose=True):
+def load_images_from_csv(csv_path, dataset_name, is_train=True, resize=None, max_images=None, verbose=True,
+                         target_label=None):
     """
     Load all images listed in CSV file.
 
@@ -142,6 +143,10 @@ def load_images_from_csv(csv_path, dataset_name, is_train = True, resize=None, m
         resize: Tuple (width, height) to resize images
         max_images: Maximum number of images to load (None for all)
         verbose: Print loading progress
+        target_label: Filter by label.
+                      None or 'all' -> load all.
+                      0 -> load only fake.
+                      1 -> load only real.
 
     Returns:
         Tuple of (images, labels, filenames)
@@ -151,11 +156,24 @@ def load_images_from_csv(csv_path, dataset_name, is_train = True, resize=None, m
     """
     filenames, labels, label_strings = load_image_list_from_csv(csv_path, return_labels=True)
 
+    # Filter based on target_label if provided
+    if target_label is not None and target_label != 'all':
+        filtered_indices = [i for i, label in enumerate(labels) if label == target_label]
+        filenames = [filenames[i] for i in filtered_indices]
+        labels = [labels[i] for i in filtered_indices]
+        label_strings = [label_strings[i] for i in filtered_indices]
+
+        if verbose:
+            print(f"Filtered to keep only label {target_label}. Count: {len(filenames)}")
+
     if max_images is not None:
         filenames = filenames[:max_images]
         labels = labels[:max_images]
+
     path_dict = get_dataset_paths(dataset_name)
-    specific_path = path_dict[TRAIN_ROOT] if is_train else path_dict[VALID_ROOT]
+    # Note: Ensure TRAIN_ROOT keys match what get_dataset_paths returns.
+    # Usually keys are strings like 'TRAIN_ROOT'.
+    specific_path = path_dict['TRAIN_ROOT'] if is_train else path_dict['VALID_ROOT']
 
     images = []
     valid_labels = []
@@ -164,6 +182,7 @@ def load_images_from_csv(csv_path, dataset_name, is_train = True, resize=None, m
     for i, (filename, label) in enumerate(zip(filenames, labels)):
         try:
             # Determine subdirectory based on label
+            # 1 = real, 0 = fake for rvf10k convention usually
             if label == 1:
                 img_path = specific_path / "real" / filename
             else:
@@ -186,6 +205,7 @@ def load_images_from_csv(csv_path, dataset_name, is_train = True, resize=None, m
 
     if verbose:
         print(f"\nSuccessfully loaded {len(images)} images")
-        print(f"Image shape: {images.shape}")
+        if len(images) > 0:
+            print(f"Image shape: {images.shape}")
 
     return images, valid_labels, valid_filenames

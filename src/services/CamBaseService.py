@@ -16,7 +16,8 @@ from src.utils.data_loader_utils import load_images_from_csv
 from pytorch_grad_cam import LayerCAM, GradCAM, HiResCAM, EigenGradCAM
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 from pytorch_grad_cam.utils.image import show_cam_on_image
-
+from config.LOAD_MODE import LOAD_MODE
+from torchvision.transforms import functional as F
 
 class CAM_TYPE(Enum):
     LAYER = 'layer_cam'
@@ -26,7 +27,7 @@ class CAM_TYPE(Enum):
 
 
 class CamBaseService:
-    def __init__(self, experiment: BaseExperiment, model_name=None, cam_method=CAM_TYPE.LAYER.value):
+    def __init__(self, experiment: BaseExperiment, model_name=None, cam_method=CAM_TYPE.LAYER.value, image_mode=LOAD_MODE.ONLY_FAKE.value):
         self.experiment = experiment
         self.experiment_name = experiment.experiment_name
         self.dataset_name = experiment.dataset_name
@@ -39,6 +40,10 @@ class CamBaseService:
         self.cam_method = cam_method
         # set how many images to process (batch control)
         self.batch_limit = 10
+        # 0 -> only fake images
+        # 1 -> only real images
+        # None -> load all images
+        self.image_mode = image_mode
 
         self.cam_output_folder = OUTPUT_FOLDER / self.experiment_name / self.dataset_name / self.cam_method
 
@@ -125,15 +130,33 @@ class CamBaseService:
 
     def load_images(self):
         '''
-        load images using the utility function
+        load images using the utility function with filtering support
+        args:
+            load_mode: LOAD_MODE enum (ALL, ONLY_FAKE, ONLY_REAL)
         '''
-        print("loading images from csv...")
+        print(f"loading images from csv with mode: {self.image_mode}...")
         dataset_path_dict = get_dataset_paths(self.dataset_name)
         valid_csv = dataset_path_dict['VALID_CSV']
 
+        # determine target label based on load mode
+        # assuming rvf10k convention: 0 is fake, 1 is real
+        target_label = self.image_mode
+        if self.image_mode == LOAD_MODE.ONLY_FAKE.value:
+            target_label = 0
+        elif self.image_mode == LOAD_MODE.ONLY_REAL.value:
+            target_label = 1
+        else:
+            target_label = None  # or 'all'
+
         # load images using existing utility
         # returns numpy array (n, h, w, 3)
-        images, valid_labels, valid_filenames = load_images_from_csv(valid_csv, self.dataset_name, False)
+        images, valid_labels, valid_filenames = load_images_from_csv(
+            csv_path=valid_csv,
+            dataset_name=self.dataset_name,
+            is_train=False,
+            target_label=target_label
+        )
+
         return images, valid_labels, valid_filenames
 
     def _get_target_layers(self):
@@ -180,24 +203,51 @@ class CamBaseService:
 
         for i in range(num_images_to_process):
             try:
-                original_img = images[i]  # shape (h, w, 3), 0-255
+                original_img = images[i]  # shape (h, w, 3), 0-255, RGB
                 filename = Path(valid_filenames[i]).stem
 
-                # preprocess for pytorch:
-                # 1. normalize to [0, 1]
-                # 2. transpose to (c, h, w)
-                # 3. add batch dimension
-                input_tensor = torch.from_numpy(original_img).float() / 255.0
-                input_tensor = input_tensor.permute(2, 0, 1).unsqueeze(0).to(self.device)
+                ground_truth = int(valid_labels[i])
 
-                # generate heatmap
+                # --- PREPROCESSING START ---
+                # 1. Convert to Tensor [0, 1] (C, H, W)
+                input_tensor = torch.from_numpy(original_img).permute(2, 0, 1).float() / 255.0
+
+                # 2. Apply Normalization (CRITICAL STEP if model was trained with it)
+                # Standard ImageNet normalization values
+                # If your training code didn't use this, remove this step.
+                # But usually, shufflenet_v2_x1_0(weights="DEFAULT") expects this.
+                input_tensor = F.normalize(input_tensor, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+
+                # 3. Add batch dimension
+                input_tensor = input_tensor.unsqueeze(0).to(self.device)
+                # --- PREPROCESSING END ---
+
+                # 4. Get model prediction
+                with torch.no_grad():
+                    outputs = self.experiment.model(input_tensor)
+                    probs = torch.sigmoid(outputs)
+
+                    # Probability of class 1 (Fake)
+                    prob_fake = probs.item()
+
+                    # Determine label (Threshold 0.5)
+                    predicted_label = 1 if prob_fake > 0.5 else 0
+
+                    # Confidence is the probability of the *predicted* class
+                    display_confidence = prob_fake if predicted_label == 1 else (1 - prob_fake)
+
+                # 5. Generate heatmap
                 heatmap = None
                 if self.cam_method == CAM_TYPE.LAYER.value:
                     heatmap = self.make_layercam_heatmap(input_tensor, target_layers)
 
-                # save result
+                # 6. Save result
                 if heatmap is not None:
-                    output_filename = f"{self.cam_method}_{i}_{filename}.jpg"
+                    # format: {method}_{filename}_gt{gt}_pred{pred}_conf{conf}.jpg
+                    output_filename = f"{self.cam_method}_{filename}_gt{ground_truth}_pred{predicted_label}_conf{display_confidence:.2f}.jpg"
+
+                    # Note: We pass original_img (0-255 numpy) for visualization,
+                    # but we used normalized input_tensor for model inference.
                     self.save_cam_image(original_img, heatmap, output_filename)
                     print(f"saved {output_filename}")
 

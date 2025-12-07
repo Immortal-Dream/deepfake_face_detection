@@ -36,7 +36,8 @@ def test_cam_service_shuffle():
     cam_service = CamBaseService(
         experiment=experiment,
         model_name=model_filename,
-        cam_method=CAM_TYPE.LAYER.value
+        cam_method=CAM_TYPE.LAYER.value,
+        image_mode=LOAD_MODE.ONLY_FAKE.value,
     )
 
     # set batch limit (how many images to process)
