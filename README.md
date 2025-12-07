@@ -85,6 +85,7 @@ For **ViT**, the dataset can be specified directly from the command line without
 
 ```bash
 python -m src.experiments.baselines.ViT.main --dataset_name rvf10k
+```
 
 -----
 
