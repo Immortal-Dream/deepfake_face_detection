@@ -69,6 +69,23 @@ python -m src.experiments.baselines.ShuffleNetV2.main --epochs 15 --batch_size 3
 python -m src.experiments.baselines.ViT.grad_cam
 ```
 
+### 5. Dataset Configuration Notes
+
+#### BlockShuffleLearning
+To run **BlockShuffleLearning** on a different dataset, you must manually update the dataset name before each run by changing:
+
+DATASET_NAME = "rvf10k"
+
+in **both** of the following files:
+- `src/experiments/baselines/BlockShuffleLearning/main.py`
+- `src/experiments/baselines/BlockShuffleLearning/configs/xception._bsl.py`
+
+#### Vision Transformer (ViT)
+For **ViT**, the dataset can be specified directly from the command line without modifying any source files:
+
+```bash
+python -m src.experiments.baselines.ViT.main --dataset_name rvf10k
+
 -----
 
 ### **Note on PyTorch (torch)**
