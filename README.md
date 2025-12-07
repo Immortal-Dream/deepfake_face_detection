@@ -47,7 +47,7 @@ pip install -r requirements.txt
 ### 3\. Run Experiments
 - Method 1:
 ```commandline
-python -m src.experiments.baselines.ViT.main
+python -m src.experiments.baselines.ViT.main --dataset rvf10k
 ```
 - Method 2: 
 ```commandline
@@ -66,7 +66,7 @@ python -m src.experiments.baselines.ShuffleNetV2.main --epochs 15 --batch_size 3
 ### 4\. Run GradCAM Analysis
 - Method 1:
 ```commandline
-python -m src.experiments.baselines.ViT.grad_cam
+python -m src.experiments.baselines.ViT.grad_cam --dataset rvf10k
 ```
 
 ### 5. Dataset Configuration Notes

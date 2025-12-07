@@ -14,7 +14,7 @@ from src.config.path_config import MODEL_FOLDER
 
 class ViTBaselineExperiment(BaseExperiment):
     def __init__(self, config: dict):
-        dataset = config.get("dataset_name", "unknown")
+        dataset = config.get("dataset_name", "rvf10k")
         exp_name = "ViT_baseline"
         super().__init__(exp_name, config)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -126,7 +126,9 @@ class ViTBaselineExperiment(BaseExperiment):
         return {"loss": total_loss / total, "accuracy": correct / total}
 
     def save_model(self):
-        model_path = MODEL_FOLDER / f"{self.experiment_name}_model.pth"
+        dataset = self.config.get("dataset_name", "rvf10k")
+        dataset_suffix = f"_{dataset}" if dataset != "rvf10k" else ""
+        model_path = MODEL_FOLDER / f"{self.experiment_name}{dataset_suffix}_model.pth"
         torch.save(
             {
                 "model_state_dict": self.vit_model.state_dict(),
@@ -145,7 +147,7 @@ class ViTBaselineExperiment(BaseExperiment):
         aderboard like Xception."""
         OVERALL_FOLDER.mkdir(parents=True, exist_ok=True)
 
-        dataset = self.config.get("dataset_name", "unknown")
+        dataset = self.config.get("dataset_name", "rvf10k")
         leaderboard_path = OVERALL_FOLDER / f"{dataset}_leaderboard.csv"
 
         row = {

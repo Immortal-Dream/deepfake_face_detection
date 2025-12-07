@@ -1,3 +1,4 @@
+import argparse
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -13,7 +14,8 @@ from pytorch_grad_cam import GradCAM, EigenGradCAM, LayerCAM, HiResCAM
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 from pytorch_grad_cam.utils.image import show_cam_on_image
 
-from src.config.path_config import OUTPUT_FOLDER, MODEL_FOLDER
+from src.config.path_config import OUTPUT_FOLDER, MODEL_FOLDER, get_dataset_paths
+from src.utils.csv_utils import create_dataset_csv
 from src.utils.data_loader_utils import load_and_preprocess_data
 from src.experiments.baselines.ViT.ViTBaselineExperiment import ViTBaselineExperiment
 
@@ -63,8 +65,19 @@ def reshape_transform_vit_huggingface(x):
     return activations
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description='Run GradCAM analysis on an existing ViT model'
+    )
+    parser.add_argument('--dataset', type=str, default="rvf10k", help='The dataset that the model trained on. ' +
+                        'Options: rvf10k, dalle2, latent_diffusion, midjourney, StableDiffusion, STARGAN, taming_transformer_VQGAN')
+
+    args = parser.parse_args()
+
     # Load model
-    model_path = MODEL_FOLDER / "ViT_baseline_model.pth"
+    dataset_name = args.dataset
+    dataset_suffix = f"_{dataset_name}" if dataset_name != "rvf10k" else ""
+    model_path = MODEL_FOLDER / f"ViT_baseline{dataset_suffix}_model.pth"
+
     print(f"Loading model from: {model_path}")
 
     checkpoint = torch.load(model_path)
@@ -86,7 +99,16 @@ if __name__ == "__main__":
     experiment.vit_model.eval()
 
     # Load data
-    csv_path = OUTPUT_FOLDER / "ViT_dataset.csv"
+    paths = get_dataset_paths(dataset_name)
+    data_dirs = [str(paths["TRAIN_ROOT"]), str(paths["VALID_ROOT"])]
+
+    csv_path = OUTPUT_FOLDER / f"ViT_{dataset_name}.csv"
+    if not csv_path.exists():
+        print(f"Creating dataset CSV for {dataset_name} at {csv_path}")
+        create_dataset_csv(data_dirs, csv_path)
+    else:
+        print(f"Using existing CSV for {dataset_name}: {csv_path}")
+
     X, y, label_dict = load_and_preprocess_data(csv_path)
 
     reverse_label_dict = {v: k for k, v in label_dict.items()}
@@ -155,7 +177,7 @@ if __name__ == "__main__":
             plt.suptitle(f'{experiment.experiment_name} {method_name} Analysis for Deepfake Detection', fontsize=14, fontweight='bold')
             plt.tight_layout()
 
-            output_dir = OUTPUT_FOLDER / experiment.experiment_name / method_name
+            output_dir = OUTPUT_FOLDER / experiment.experiment_name / dataset_name / method_name
             output_dir.mkdir(parents=True, exist_ok=True)
             save_path = output_dir / f'result_{i}.png'
             plt.savefig(save_path, dpi=150, bbox_inches='tight')

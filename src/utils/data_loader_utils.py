@@ -11,8 +11,7 @@ from tensorflow.keras.preprocessing.image import load_img, img_to_array
 from tensorflow.keras.utils import to_categorical
 import warnings
 
-from config.path_config import TRAIN_ROOT, VALID_ROOT
-from src.config.path_config import RVF10K_ROOT, get_dataset_paths
+from src.config.path_config import TRAIN_ROOT, VALID_ROOT, RVF10K_ROOT, get_dataset_paths
 
 warnings.filterwarnings('ignore')
 
