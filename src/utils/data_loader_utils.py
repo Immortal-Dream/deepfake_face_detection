@@ -10,7 +10,7 @@ from PIL import Image
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 from tensorflow.keras.utils import to_categorical
 import warnings
-from src.config.path_config import RVF10K_ROOT
+#from src.config.path_config import RVF10K_ROOT
 warnings.filterwarnings('ignore')
 
 # Global configuration
