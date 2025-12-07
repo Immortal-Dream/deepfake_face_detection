@@ -13,11 +13,18 @@ from src.experiments.baselines.MobileNetV3Large.MobileNetV3LargeAugumentedExperi
 warnings.filterwarnings('ignore')
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
+# define the dataset we use
 
 def main():
     """
     Main execution function that runs experiments.
     """
+    dataset_name = midjourney
+
+    path_dict = get_dataset_paths(dataset_name)
+    TRAIN_ROOT = path_dict['TRAIN_ROOT']
+    VALID_ROOT = path_dict['VALID_ROOT']
+
     parser = argparse.ArgumentParser(
         description='Train MobileNetV3Large for Fake vs Real Face Classification'
     )
@@ -35,7 +42,7 @@ def main():
                         help='Image size (height, width)')
     parser.add_argument('--run_baseline', action='store_true', default=True,
                         help='Run baseline experiment')
-    parser.add_argument('--run_augmented', action='store_true', default=True,
+    parser.add_argument('--run_augmented', action='store_true', default=False,
                         help='Run augmented experiment')
     parser.add_argument('--no_baseline', dest='run_baseline', action='store_false',
                         help='Skip baseline experiment')
@@ -84,10 +91,12 @@ def main():
 
     if args.run_baseline:
         baseline_exp = MobileNetV3LargeBaselineExperiment(config)
+        baseline_exp.set_dataset_name(dataset_name)
         baseline_metrics = baseline_exp.run(X_train, y_train, X_val, y_val, X_test, y_test, label_dict)
 
     if args.run_augmented:
         augmented_exp = MobileNetV3LargeAugumentedExperiment(config)
+        augmented_exp.set_dataset_name(dataset_name)
         augmented_metrics = augmented_exp.run(X_train, y_train, X_val, y_val, X_test, y_test, label_dict)
 
     # Summary comparison
