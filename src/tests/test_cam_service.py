@@ -1,8 +1,37 @@
+from experiments.XceptionPyTorchExperiment import XceptionPyTorchExperiment
+from experiments.baselines.BlockShuffleLearning.models.xception import XceptionBSL
 from experiments.baselines.ShuffleNetV2.ShuffleNetV2Experiment import ShuffleNetV2Experiment
 from src.services.CamBaseService import *
 
 
-def test_cam_service_shuffle():
+def test_cam_service_xception():
+
+    config = {"dataset_name": DALLE2,
+              'epochs': 1,
+              'batch_size': 10,
+              'image_size': 224}
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = XceptionBSL(num_class=1, is_train=False, is_bs_adv=True, is_rs_adv=True).eval().to(device)
+
+    experiment = XceptionPyTorchExperiment(config=config, model=model, device=device)
+    experiment.dataset_name = DALLE2
+    model_filename = 'xception_BSL_dalle2.pth'
+
+    cam_service = CamBaseService(
+        experiment=experiment,
+        model_name=model_filename,
+        cam_method=CAM_TYPE.LAYER.value,
+        image_mode=LOAD_MODE.ONLY_FAKE.value,
+    )
+
+    # set batch limit (how many images to process)
+    cam_service.batch_limit = 10
+
+    print("starting cam generation...")
+    # run the service
+    cam_service.run()
+
+def test_cam_service_shuffle_net():
     # set random seeds for reproducibility
     np.random.seed(42)
     torch.manual_seed(42)
@@ -22,7 +51,7 @@ def test_cam_service_shuffle():
     experiment.dataset_name = rvf10k
 
     # define the model filename
-    model_filename = "rvf10k_ShuffleNetV2_pytorch.pth"
+    model_filename = "rvf10k_ShuffleNetV2_baseline_model.pth"
 
     # check if model exists before running
     if not (MODEL_FOLDER / model_filename).exists():
@@ -41,7 +70,7 @@ def test_cam_service_shuffle():
     )
 
     # set batch limit (how many images to process)
-    cam_service.batch_limit = 10
+    cam_service.batch_limit = 5
 
     print("starting cam generation...")
     # run the service

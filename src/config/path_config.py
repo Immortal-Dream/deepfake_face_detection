@@ -3,6 +3,16 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 DATA_ROOT = PROJECT_ROOT / "data"
 
+# Constants
+rvf10k = "rvf10k"
+STARGAN = "STARGAN"
+STABLE_DIFFUSION = "StableDiffusion"
+DALLE2 = "dalle2"
+LATENT_DIFFUSION = "latent_diffusion"
+MIDJOURNEY = "midjourney"
+TAMING_TRANSFORMER_VQGAN = "taming_transformer_VQGAN"
+
+
 # -----------------------------
 # DATASET ROOTS
 # -----------------------------
@@ -45,9 +55,6 @@ RVF10K_ROOT = DATA_ROOT / "rvf10k"
 MODEL_FOLDER = PROJECT_ROOT / "models"
 
 
-# Constants
-rvf10k = "rvf10k"
-midjourney = "midjourney"
 VALID_CSV = 'VALID_CSV'
 VALID_ROOT = "VALID_ROOT"
 TRAIN_ROOT = 'TRAIN_ROOT'
