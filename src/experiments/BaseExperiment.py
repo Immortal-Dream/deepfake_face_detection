@@ -25,6 +25,7 @@ class BaseExperiment:
             config: Dictionary containing hyperparameters and settings
         """
         self.experiment_name = experiment_name
+        self.dataset_name = "rvf10k"
         self.config = config
         self.model = None
         self.history = None
@@ -32,6 +33,9 @@ class BaseExperiment:
         self.output_dir = OUTPUT_FOLDER / self.experiment_name
         self.plotter = PlotService(self.experiment_name, self.output_dir, config)
         self._setup_directories()
+
+    def set_dataset_name(self, dataset_name: str):
+        self.dataset_name = dataset_name
 
     # $Requires$ customization according to the model structure of the specific method.
     def create_model(self, num_classes: int):
@@ -109,7 +113,7 @@ class BaseExperiment:
     # This method is universal for all Keras models
     def save_model(self):
         """Save the trained model."""
-        model_path = MODEL_FOLDER / f'{self.experiment_name}_model.h5'
+        model_path = MODEL_FOLDER / f'{self.dataset_name}_{self.experiment_name}_model.h5'
         self.model.save(model_path)
         print(f"Model saved to {model_path}")
 

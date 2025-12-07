@@ -10,13 +10,17 @@ from PIL import Image
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 from tensorflow.keras.utils import to_categorical
 import warnings
-from src.config.path_config import RVF10K_ROOT
+
+from config.path_config import TRAIN_ROOT, VALID_ROOT
+from src.config.path_config import RVF10K_ROOT, get_dataset_paths
+
 warnings.filterwarnings('ignore')
 
 # Global configuration
 DATA_ROOT = Path("data/rvf10k")
 TRAIN_CSV = DATA_ROOT / "train.csv"
 VALID_CSV = DATA_ROOT / "valid.csv"
+
 
 def load_and_preprocess_data(csv_path, height=224, width=224):
     """
@@ -84,6 +88,7 @@ def load_image_list_from_csv(csv_path, return_labels=False):
         print(f"Loaded {len(filenames)} image filenames from {csv_path}")
         return filenames
 
+
 def load_image_with_filename(filename, is_real, is_train):
     image_path = RVF10K_ROOT
     if is_train:
@@ -98,7 +103,6 @@ def load_image_with_filename(filename, is_real, is_train):
 
     image_path = image_path / filename
     return load_image(image_path)
-
 
 
 def load_image(image_path, resize=None, to_rgb=True):
@@ -128,13 +132,14 @@ def load_image(image_path, resize=None, to_rgb=True):
     return np.array(img)
 
 
-def load_images_from_csv(csv_path, image_dir, resize=None, max_images=None, verbose=True):
+def load_images_from_csv(csv_path, dataset_name, is_train = True, resize=None, max_images=None, verbose=True):
     """
     Load all images listed in CSV file.
 
     Args:
         csv_path: Path to CSV file
-        image_dir: Directory containing images (e.g., "data/rvf10k/valid/real")
+        dataset_name: Name of dataset "like rvf10k"
+        is_train: whether to load train dataset
         resize: Tuple (width, height) to resize images
         max_images: Maximum number of images to load (None for all)
         verbose: Print loading progress
@@ -150,8 +155,9 @@ def load_images_from_csv(csv_path, image_dir, resize=None, max_images=None, verb
     if max_images is not None:
         filenames = filenames[:max_images]
         labels = labels[:max_images]
+    path_dict = get_dataset_paths(dataset_name)
+    specific_path = path_dict[TRAIN_ROOT] if is_train else path_dict[VALID_ROOT]
 
-    image_dir = Path(image_dir)
     images = []
     valid_labels = []
     valid_filenames = []
@@ -160,13 +166,9 @@ def load_images_from_csv(csv_path, image_dir, resize=None, max_images=None, verb
         try:
             # Determine subdirectory based on label
             if label == 1:
-                img_path = image_dir.parent / "real" / filename
+                img_path = specific_path / "real" / filename
             else:
-                img_path = image_dir.parent / "fake" / filename
-
-            # Try direct path if above doesn't work
-            if not img_path.exists():
-                img_path = image_dir / filename
+                img_path = specific_path / "fake" / filename
 
             img = load_image(img_path, resize=resize)
             images.append(img)
