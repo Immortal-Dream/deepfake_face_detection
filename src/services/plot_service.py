@@ -17,7 +17,7 @@ class PlotService:
     def __init__(self, experiment_name: str, output_dir: Path, experiment_config: dict):
         self.experiment_name = experiment_name
         self.output_dir = output_dir
-        self.config = experiment_config   # ✅ correct
+        self.config = experiment_config   
 
 
     def plot_confusion_matrix(self, model, X_test, y_test, label_dict: dict):
@@ -47,7 +47,9 @@ class PlotService:
         plt.title(f'Confusion Matrix - {self.experiment_name}')
         plt.tight_layout()
 
-        save_path = self.output_dir / f'{self.experiment_name}_confusion_matrix.png'
+        dataset = self.config.get("dataset_name", "unknown")
+        save_path = self.output_dir / f"{self.experiment_name}_{dataset}_confusion_matrix.png"
+
         plt.savefig(save_path, dpi=300)
         plt.show()
         print(f"Confusion matrix saved to {save_path}")
@@ -77,7 +79,9 @@ class PlotService:
         plt.legend()
         plt.grid(True)
 
-        save_path = self.output_dir / f'{self.experiment_name}_f1_curves.png'
+        dataset = self.config.get("dataset_name", "unknown")
+        save_path = self.output_dir / f"{self.experiment_name}_{dataset}_f1_curves.png"
+
         plt.savefig(save_path, dpi=300)
         plt.show()
         print(f"F1 curves saved to {save_path}")
@@ -97,7 +101,6 @@ class PlotService:
 
                 outputs = model(X)
 
-                # Your model returns a dict with key "out"
                 logits = outputs["out"]
 
                 prob = torch.sigmoid(logits).cpu().numpy()
@@ -156,7 +159,7 @@ class PlotService:
 
         dataset = self.config.get("dataset_name", "unknown")
 
-        save_path = self.output_dir / f"{dataset}_f1_curve.png"
+        save_path = self.output_dir / f"{self.experiment_name}_{dataset}_f1_curve.png"
 
         plt.savefig(save_path, dpi=300)
         plt.close()

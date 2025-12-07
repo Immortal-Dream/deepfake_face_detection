@@ -30,7 +30,10 @@ class BaseExperiment:
         self.model = None
         self.history = None
         self.metrics = {}
+        dataset = config.get("dataset_name", "unknown")
         self.output_dir = OUTPUT_FOLDER / self.experiment_name
+        self.dataset = dataset
+
         self.plotter = PlotService(self.experiment_name, self.output_dir, config)
         self._setup_directories()
 

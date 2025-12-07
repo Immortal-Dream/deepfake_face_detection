@@ -5,6 +5,8 @@ from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 from transformers import ViTForImageClassification, ViTImageProcessor
 from tqdm import tqdm
+from src.config.path_config import OVERALL_FOLDER
+import pandas as pd
 
 from src.experiments.BaseExperiment import BaseExperiment
 from src.config.path_config import MODEL_FOLDER
@@ -12,7 +14,9 @@ from src.config.path_config import MODEL_FOLDER
 
 class ViTBaselineExperiment(BaseExperiment):
     def __init__(self, config: dict):
-        super().__init__("ViT_baseline", config)
+        dataset = config.get("dataset_name", "unknown")
+        exp_name = "ViT_baseline"
+        super().__init__(exp_name, config)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.processor = ViTImageProcessor.from_pretrained("google/vit-base-patch16-224")
         self.vit_model = None
@@ -132,6 +136,48 @@ class ViTBaselineExperiment(BaseExperiment):
             model_path,
         )
         print(f"Model saved to {model_path}")
+    
+    
+
+    def update_leaderboard(self):
+        """Dataset-specific leen insert the update_leaderboard() method inside the class.
+        
+        aderboard like Xception."""
+        OVERALL_FOLDER.mkdir(parents=True, exist_ok=True)
+
+        dataset = self.config.get("dataset_name", "unknown")
+        leaderboard_path = OVERALL_FOLDER / f"{dataset}_leaderboard.csv"
+
+        row = {
+            "experiment_name": self.experiment_name,
+            "precision": self.metrics["precision"],
+            "recall": self.metrics["recall"],
+            "f1_score": self.metrics["f1_score"],
+            "accuracy": self.metrics["accuracy"],
+            "timestamp": self.metrics["timestamp"],
+        }
+
+        new_row_df = pd.DataFrame([row])
+
+        if leaderboard_path.exists():
+            df = pd.read_csv(leaderboard_path)
+
+            if self.experiment_name in df["experiment_name"].values:
+                for col in row:
+                    df.loc[df["experiment_name"] == self.experiment_name, col] = row[col]
+                print(f"[INFO] Updated {self.experiment_name} in leaderboard")
+            else:
+                df = pd.concat([df, new_row_df], ignore_index=True)
+                print(f"[INFO] Added new entry for {self.experiment_name} to leaderboard")
+        else:
+            df = new_row_df
+            print(f"[INFO] Created new leaderboard file for {dataset}")
+
+        df = df.sort_values(by="f1_score", ascending=False).reset_index(drop=True)
+        df.to_csv(leaderboard_path, index=False)
+
+        print(f"[INFO] Saved leaderboard → {leaderboard_path}")
+
 
 
 class ViTWrapper:
