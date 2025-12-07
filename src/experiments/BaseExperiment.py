@@ -16,7 +16,7 @@ class BaseExperiment:
     Subclasses must implement create_model() and train() methods.
     """
 
-    def __init__(self, experiment_name: str, config: dict):
+    def __init__(self, experiment_name: str, config: dict, dataset_name: str = 'rvf10k'):
         """
         Initialize experiment with name and configuration.
 
@@ -25,13 +25,13 @@ class BaseExperiment:
             config: Dictionary containing hyperparameters and settings
         """
         self.experiment_name = experiment_name
-        self.dataset_name = "rvf10k"
+        self.dataset_name = dataset_name
         self.config = config
         self.model = None
         self.history = None
         self.metrics = {}
         dataset = config.get("dataset_name", "unknown")
-        self.output_dir = OUTPUT_FOLDER / self.experiment_name
+        self.output_dir = OUTPUT_FOLDER / self.dataset_name / self.experiment_name
         self.dataset = dataset
 
         self.plotter = PlotService(self.experiment_name, self.output_dir, config)
