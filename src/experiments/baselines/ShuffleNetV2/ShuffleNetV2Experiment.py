@@ -7,13 +7,17 @@ from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_sc
 import matplotlib.pyplot as plt
 import seaborn as sns
 from tqdm import tqdm
+
+from experiments.BaseExperiment import BaseExperiment
 from src.config.path_config import OUTPUT_FOLDER, OVERALL_FOLDER, MODEL_FOLDER
 
-class ShuffleNetV2Experiment:
+
+class ShuffleNetV2Experiment(BaseExperiment):
     """
     PyTorch baseline experiment for ShuffleNetV2 (1.0x) following the same
     output/logging conventions as other baselines (e.g., MobileNetV3Large).
     """
+
     def __init__(self, config: dict):
         self.experiment_name = "ShuffleNetV2_pytorch"
         self.config = config
@@ -69,7 +73,7 @@ class ShuffleNetV2Experiment:
                 epoch_preds.extend(preds)
                 epoch_trues.extend(labels.detach().cpu().numpy().flatten())
                 batch_times.append(time.time() - t0)
-            avg_batch = sum(batch_times)/len(batch_times) if batch_times else 0.0
+            avg_batch = sum(batch_times) / len(batch_times) if batch_times else 0.0
             train_f1 = f1_score(epoch_trues, epoch_preds, average='weighted')
             self.history['train_f1'].append(train_f1)
 
@@ -87,7 +91,8 @@ class ShuffleNetV2Experiment:
             val_f1 = f1_score(val_trues, val_preds, average='weighted')
             self.history['val_f1'].append(val_f1)
             epoch_time = time.time() - start_epoch
-            print(f"Epoch {epoch}/{epochs} | time: {epoch_time:.1f}s | avg_batch: {avg_batch:.3f}s | train_f1: {train_f1:.4f} | val_f1: {val_f1:.4f}")
+            print(
+                f"Epoch {epoch}/{epochs} | time: {epoch_time:.1f}s | avg_batch: {avg_batch:.3f}s | train_f1: {train_f1:.4f} | val_f1: {val_f1:.4f}")
         return self.history
 
     def evaluate(self, test_loader, label_dict: dict):
@@ -174,23 +179,29 @@ class ShuffleNetV2Experiment:
             print("No F1 history to plot.")
             return
         epochs = range(1, len(self.history['train_f1']) + 1)
-        plt.figure(figsize=(10,5))
+        plt.figure(figsize=(10, 5))
         plt.plot(epochs, self.history['train_f1'], label='Training F1', color='red')
         plt.plot(epochs, self.history['val_f1'], label='Validation F1', color='blue')
         plt.title(f'Training & Validation F1 Score - {self.experiment_name}')
-        plt.xlabel('Epoch'); plt.ylabel('F1 Score'); plt.legend(); plt.grid(True)
+        plt.xlabel('Epoch');
+        plt.ylabel('F1 Score');
+        plt.legend();
+        plt.grid(True)
         save_path = self.output_dir / f'{self.experiment_name}_f1_curves.png'
-        plt.savefig(save_path, dpi=300); plt.close()
+        plt.savefig(save_path, dpi=300);
+        plt.close()
         print(f"F1 curves saved to {save_path}")
 
     def _plot_confusion_matrix(self, y_true, y_pred, label_dict: dict):
         cm = confusion_matrix(y_true, y_pred)
-        plt.figure(figsize=(8,6))
+        plt.figure(figsize=(8, 6))
         sns.heatmap(cm, annot=True, fmt='g', cmap='Blues',
                     xticklabels=label_dict.keys(), yticklabels=label_dict.keys())
-        plt.xlabel('Predicted'); plt.ylabel('True')
+        plt.xlabel('Predicted');
+        plt.ylabel('True')
         plt.title(f'Confusion Matrix - {self.experiment_name}')
         plt.tight_layout()
         save_path = self.output_dir / f'{self.experiment_name}_confusion_matrix.png'
-        plt.savefig(save_path, dpi=300); plt.close()
+        plt.savefig(save_path, dpi=300);
+        plt.close()
         print(f"Confusion matrix saved to {save_path}")

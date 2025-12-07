@@ -1,15 +1,9 @@
-from navigator_updater.static.css import DATA_PATH
-from pytorch_grad_cam import GradCAM, EigenGradCAM, LayerCAM, HiResCAM
-from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
-from pytorch_grad_cam.utils.image import show_cam_on_image
 
 from src.utils.data_loader_utils import load_images_from_csv
-from src.experiments.baselines.MobileNetV3Large import MobileNetV3LargeBaselineExperiment
 
 import os
 import numpy as np
 import tensorflow as tf
-import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import cv2
 from pathlib import Path
@@ -72,7 +66,7 @@ def make_layercam_heatmap(img_array, model, last_conv_layer_name, pred_index=Non
     grads = grads[0]
     activations = last_conv_layer_output[0]
 
-    # layer-cam logic: we use element-wise gradients (rectified) as weights
+    # layer-cam logit
     # instead of global average pooling. this preserves spatial details.
     weighted_grads = tf.maximum(grads, 0)
 
