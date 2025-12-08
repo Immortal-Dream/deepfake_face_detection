@@ -19,7 +19,7 @@ class ShuffleNetV2Experiment(BaseExperiment):
     """
 
     def __init__(self, config: dict):
-        self.experiment_name = "ShuffleNetV2_pytorch"
+        self.experiment_name = "ShuffleNetV2_baseline"
         self.config = config
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = None
