@@ -3,20 +3,14 @@ import cv2
 import numpy as np
 import torch
 import torch.nn as nn
-from PIL import Image
 from pathlib import Path
 from enum import Enum
 from torchvision.transforms import functional as F
 
-# imports from your project structure
 from src.experiments.BaseExperiment import BaseExperiment
 from src.config.path_config import *
 from src.utils.data_loader_utils import load_images_from_csv
-
-# import pytorch grad cam libraries
-from pytorch_grad_cam import LayerCAM, GradCAM, HiResCAM, EigenGradCAM
-from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
-from pytorch_grad_cam.utils.image import show_cam_on_image
+from pytorch_grad_cam import LayerCAM
 from config.LOAD_MODE import LOAD_MODE
 
 
@@ -28,6 +22,8 @@ class CAM_TYPE(Enum):
 
 
 class ModelOutputWrapper(nn.Module):
+    """Wrapper to handle different model output formats."""
+
     def __init__(self, model):
         super(ModelOutputWrapper, self).__init__()
         self.model = model
@@ -35,305 +31,236 @@ class ModelOutputWrapper(nn.Module):
     def forward(self, x):
         output = self.model(x)
         if isinstance(output, dict):
-            # Try common keys for logits
             if 'out' in output:
                 return output['out']
             elif 'logits' in output:
                 return output['logits']
-            else:
-                # Fallback: return the first value
-                return list(output.values())[0]
+            return list(output.values())[0]
         return output
 
 
 class CamBaseService:
-    def __init__(self, experiment: BaseExperiment = None, model_name=None, cam_method=CAM_TYPE.LAYER.value,
-                 image_mode=LOAD_MODE.ONLY_FAKE.value):
+    def __init__(self, experiment: BaseExperiment = None, model_name=None,
+                 cam_method=CAM_TYPE.LAYER.value, image_mode=LOAD_MODE.ONLY_FAKE.value,
+                 save_raw_heatmap=False, debug_mode=True):
         self.experiment = experiment
         self.experiment_name = experiment.experiment_name
         self.dataset_name = experiment.dataset_name
-
-        # determine model path
-        self.model_name = model_name if model_name else f"{self.dataset_name}_{self.experiment_name}_model.pth"
+        self.model_name = model_name or f"{self.dataset_name}_{self.experiment_name}_model.pth"
         self.model_path = MODEL_FOLDER / self.model_name
-
-        # set the method here (layer or grad)
         self.cam_method = cam_method
-        # set how many images to process (batch control)
         self.batch_limit = 10
-        # 0 -> only fake images
-        # 1 -> only real images
-        # None -> load all images
         self.image_mode = image_mode
+        self.save_raw_heatmap = save_raw_heatmap
+        self.debug_mode = debug_mode
 
+        # Output directories
         self.cam_output_folder = OUTPUT_FOLDER / self.experiment_name / self.dataset_name / self.cam_method
+        self.heatmap_output_folder = OUTPUT_FOLDER / self.experiment_name / self.dataset_name / f"{self.cam_method}_heatmaps"
 
-        # setup device
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self._setup_directories()
 
-        if not os.path.exists(self.cam_output_folder):
-            os.makedirs(self.cam_output_folder)
-            print(f"created output directory: {self.cam_output_folder}")
-
-        # cache
+        # Cache
         self.target_layers = None
-        self.num_classes = 1  # default, will be updated in load_model
+        self.num_classes = 1
 
-    def set_experiment(self, experiment: BaseExperiment):
-        """
-        Update the experiment object and refresh all dependent paths/configs.
-        """
-        print(f"Updating experiment to: {experiment.experiment_name}")
-        self.experiment = experiment
-        self._update_paths()
+    def _setup_directories(self):
+        """Create output directories if they don't exist."""
+        os.makedirs(self.cam_output_folder, exist_ok=True)
+        if self.debug_mode:
+            print(f"Created/verified directory: {self.cam_output_folder}")
 
-    def set_dataset_name(self, dataset_name: str):
-        """
-        Update the dataset name and refresh all dependent paths/configs.
-        """
-        print(f"Updating dataset name to: {dataset_name}")
-        self.dataset_name = dataset_name
-
-        # If experiment object exists, sync it too to avoid inconsistency
-        if self.experiment:
-            self.experiment.dataset_name = dataset_name
-
-        self._update_paths()
+        if self.save_raw_heatmap:
+            os.makedirs(self.heatmap_output_folder, exist_ok=True)
+            if self.debug_mode:
+                print(f"Created/verified directory: {self.heatmap_output_folder}")
 
     def save_cam_image(self, original_img, heatmap, filename, alpha=0.5):
-        '''
-        save cam images to self.cam_output_folder
-        '''
+        """Save CAM overlaid image."""
         try:
-            # resize heatmap to match original image size
+            # Resize heatmap to match original image
             heatmap = cv2.resize(heatmap, (original_img.shape[1], original_img.shape[0]))
-
-            # rescale heatmap to 0-255
             heatmap_uint8 = np.uint8(255 * heatmap)
-
-            # apply jet colormap
             heatmap_colored = cv2.applyColorMap(heatmap_uint8, cv2.COLORMAP_JET)
 
-            # convert original image to rgb if it's not already (cv2 uses bgr by default)
-            # assuming original_img passed in is rgb from data loader
+            # Convert original image to BGR for cv2
             original_img_bgr = cv2.cvtColor(original_img.astype(np.uint8), cv2.COLOR_RGB2BGR)
 
-            # superimpose
+            # Superimpose
             superimposed_img = heatmap_colored * alpha + original_img_bgr * (1 - alpha)
 
-            # save image
+            # Save
             save_path = self.cam_output_folder / filename
             cv2.imwrite(str(save_path), superimposed_img)
 
+            if self.debug_mode:
+                print(f"  💾 Saved overlaid image: {save_path}")
+
         except Exception as e:
-            print(f"error saving image {filename}: {e}")
+            print(f"Error saving overlaid image {filename}: {e}")
+
+    def save_raw_heatmap_image(self, heatmap, filename):
+        """Save raw heatmap (grayscale and color versions)."""
+        try:
+            heatmap = np.clip(heatmap, 0, 1)
+            heatmap_uint8 = np.uint8(255 * heatmap)
+
+            # Save grayscale
+            gray_filename = filename.replace('.jpg', '_gray.jpg')
+            gray_path = self.heatmap_output_folder / gray_filename
+            cv2.imwrite(str(gray_path), heatmap_uint8)
+
+            # Save colored
+            heatmap_colored = cv2.applyColorMap(heatmap_uint8, cv2.COLORMAP_JET)
+            colored_path = self.heatmap_output_folder / filename
+            cv2.imwrite(str(colored_path), heatmap_colored)
+
+            if self.debug_mode:
+                print(f"   💾 Saved raw heatmaps: {gray_path} | {colored_path}")
+
+        except Exception as e:
+            print(f"❌ Error saving raw heatmap {filename}: {e}")
 
     def make_layercam_heatmap(self, input_tensor, target_layers, targets=None):
-        '''
-        use pytorch layer cam to generate the heat map
-        '''
+        """Generate heatmap using LayerCAM."""
         wrapped_model = ModelOutputWrapper(self.experiment.model)
 
         with LayerCAM(model=wrapped_model, target_layers=target_layers) as cam:
-            # generate cam
             grayscale_cam = cam(input_tensor=input_tensor, targets=targets)
-            return grayscale_cam[0, :]
+            # grayscale_cam shape: [batch, height, width]
+            return grayscale_cam[0, :] if grayscale_cam is not None else None
 
     def load_model(self):
-        '''
-        load model architecture and weights intelligently.
-        '''
-        print(f"loading model from {self.model_path}")
+        """Load model architecture and weights."""
+        print(f"Loading model from {self.model_path}")
 
         if not os.path.exists(self.model_path):
-            print(f"warning: model file not found at {self.model_path}, skipping load.")
+            print(f"❌ CRITICAL: Model file not found at {self.model_path}")
             return
 
-        # 1. load the checkpoint
         checkpoint = torch.load(self.model_path, map_location=self.device)
 
-        # Handle case where checkpoint is not a direct state_dict but a dict containing it
-        state_dict = None
-        if isinstance(checkpoint, dict):
-            if 'model_state_dict' in checkpoint:
-                state_dict = checkpoint['model_state_dict']
-            elif 'state_dict' in checkpoint:
-                state_dict = checkpoint['state_dict']
-            else:
-                state_dict = checkpoint
-        elif isinstance(checkpoint, nn.Module):
-            print("Warning: Loaded full model object instead of state_dict. Using its state_dict.")
+        # Extract state_dict from checkpoint
+        state_dict = checkpoint.get('model_state_dict') or checkpoint.get('state_dict') or checkpoint
+        if isinstance(checkpoint, nn.Module):
             state_dict = checkpoint.state_dict()
-        else:
-            raise ValueError(f"Unsupported checkpoint format: {type(checkpoint)}")
 
-        # 2. auto-detect number of classes based on final layer weights
-        detected_num_classes = 1  # fallback default
+        # Auto-detect number of classes
+        self.num_classes = self._detect_num_classes(state_dict)
 
-        if 'fc.weight' in state_dict:
-            detected_num_classes = state_dict['fc.weight'].shape[0]
-            print(f"detected num_classes from 'fc.weight': {detected_num_classes}")
-        elif 'classifier.weight' in state_dict:
-            detected_num_classes = state_dict['classifier.weight'].shape[0]
-            print(f"detected num_classes from 'classifier.weight': {detected_num_classes}")
-        elif 'last_linear.weight' in state_dict:
-            detected_num_classes = state_dict['last_linear.weight'].shape[0]
-            print(f"detected num_classes from 'last_linear.weight': {detected_num_classes}")
-        else:
-            keys = list(state_dict.keys())
-            weight_keys = [k for k in keys if 'weight' in k and state_dict[k].ndim > 1]
-            if weight_keys:
-                last_weight_key = weight_keys[-1]
-                detected_num_classes = state_dict[last_weight_key].shape[0]
-                print(f"inferred num_classes from '{last_weight_key}': {detected_num_classes}")
-            else:
-                print("Warning: Could not infer num_classes. Using default: 1")
-
-        self.num_classes = detected_num_classes
-
-        # 3. create model architecture
-        model_instance = self.experiment.create_model(num_classes=self.num_classes)
-
+        # Create model architecture
         if self.experiment.model is None:
-            if model_instance is not None:
-                self.experiment.model = model_instance
-            else:
-                raise ValueError(
-                    f"Experiment {type(self.experiment).__name__}.create_model() returned None and did not set self.model.")
+            self.experiment.model = self.experiment.create_model(num_classes=self.num_classes)
 
-        # 4. load weights
+        # Load weights
         try:
             self.experiment.model.load_state_dict(state_dict, strict=True)
         except RuntimeError as e:
-            print(f"Strict loading failed: {e}. Retrying with strict=False...")
+            print(f"⚠️ Strict loading failed: {e}. Retrying with strict=False...")
             self.experiment.model.load_state_dict(state_dict, strict=False)
 
         self.experiment.model.to(self.device)
         self.experiment.model.eval()
-        print("model loaded successfully.")
+        print("✅ Model loaded successfully")
 
-        # cache target layers
+        # Cache target layers
         self.target_layers = self._get_target_layers()
         if not self.target_layers:
-            print("warning: could not find suitable target layers for cam.")
+            print("⚠️ WARNING: Could not find suitable target layers for CAM")
+
+    def _detect_num_classes(self, state_dict):
+        """Detect number of classes from state_dict."""
+        if 'fc.weight' in state_dict:
+            return state_dict['fc.weight'].shape[0]
+        elif 'classifier.weight' in state_dict:
+            return state_dict['classifier.weight'].shape[0]
+        elif 'last_linear.weight' in state_dict:
+            return state_dict['last_linear.weight'].shape[0]
+        return 1
 
     def load_images(self):
-        '''
-        load images using the utility function
-        '''
-        print(f"loading images from csv with mode: {self.image_mode}...")
+        """Load images from CSV."""
+        print(f"Loading images with mode: {self.image_mode}")
         dataset_path_dict = get_dataset_paths(self.dataset_name)
         valid_csv = dataset_path_dict['VALID_CSV']
 
-        target_label = self.image_mode
-        if self.image_mode == LOAD_MODE.ONLY_FAKE.value:
-            target_label = 0
-        elif self.image_mode == LOAD_MODE.ONLY_REAL.value:
-            target_label = 1
-        else:
-            target_label = None
+        if self.debug_mode:
+            print(f"   CSV path: {valid_csv}")
 
-        images, valid_labels, valid_filenames = load_images_from_csv(
+        target_label = {LOAD_MODE.ONLY_FAKE.value: 0, LOAD_MODE.ONLY_REAL.value: 1}.get(self.image_mode, None)
+
+        images, labels, filenames = load_images_from_csv(
             csv_path=valid_csv,
             dataset_name=self.dataset_name,
             is_train=False,
             target_label=target_label
         )
 
-        return images, valid_labels, valid_filenames
+        print(
+            f"✅ Loaded {len(images)} images ({len(labels)} fake, {len(labels) - len([l for l in labels if l == 0])} real)")
+        return images, labels, filenames
 
     def _get_target_layers(self):
-        '''
-        helper to determine target layers
-        '''
+        """Determine target layers for CAM extraction."""
         model = self.experiment.model
 
-        # 1. Check for XceptionBSL
+        # XceptionBSL
         if hasattr(model, 'xception'):
             backbone = model.xception
-            if hasattr(backbone, 'block12'):
-                print(f"Targeting layer: backbone.block12 (Higher Resolution)")
+            if hasattr(backbone, 'block11'):
+                print("   🎯 Targeting Xception block11 (14x14 resolution)")
+                return [backbone.block11]
+            elif hasattr(backbone, 'block12'):
+                print("   🎯 Targeting Xception block12 (7x7 resolution)")
                 return [backbone.block12]
 
-            if hasattr(backbone, 'block13'):
-                print(f"Targeting layer: backbone.block11")
-                return [backbone.block11]
-
-        # 2. Check for ShuffleNetV2
+        # ShuffleNetV2
         if hasattr(model, 'stage3'):
-            print("Targeting layer: ShuffleNetV2 stage3 (Higher Resolution 14x14)")
+            print("   🎯 Targeting ShuffleNetV2 stage3 (14x14 resolution)")
             return [model.stage3[-1]]
 
-        elif hasattr(model, 'conv5'):
-            return [model.conv5]
-
-        # 3. Check for MobileNet
+        # MobileNet
         if hasattr(model, 'features'):
-            if isinstance(model.features, nn.Module):
-                return [model.features[-1]]
+            return [model.features[-1]]
 
-        # 4. Generic Fallback
-        target_layers = []
-        for module in model.modules():
-            if isinstance(module, torch.nn.Conv2d):
-                target_layers = [module]
-
-        if target_layers:
-            return target_layers
-
-        print("Error: Could not determine target layer automatically.")
+        print("❌ ERROR: No suitable target layer found")
         return []
 
     def process_single_image(self, original_img):
-        '''
-        process a single image array
-        '''
+        """Process a single image and return heatmap and prediction info."""
         if self.experiment.model is None:
             self.load_model()
 
         if self.target_layers is None:
             self.target_layers = self._get_target_layers()
 
-        # --- preprocessing ---
+        # Preprocess
         input_tensor = torch.from_numpy(original_img).permute(2, 0, 1).float() / 255.0
         input_tensor = F.normalize(input_tensor, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         input_tensor = input_tensor.unsqueeze(0).to(self.device)
 
-        # 4. get model prediction
+        # Get prediction
         with torch.no_grad():
             outputs = self.experiment.model(input_tensor)
-
             if isinstance(outputs, dict):
-                if 'out' in outputs:
-                    logits = outputs['out']
-                elif 'logits' in outputs:
-                    logits = outputs['logits']
-                else:
-                    logits = list(outputs.values())[0]
+                logits = outputs.get('out') or outputs.get('logits') or list(outputs.values())[0]
             else:
                 logits = outputs
-            # ----------------------------------------------------
 
-            prob_fake = 0.0
-            predicted_label = 0
-
-            if self.num_classes == 1:
-                probs = torch.sigmoid(logits)
-                prob_fake = probs.item()
-                predicted_label = 1 if prob_fake > 0.5 else 0
-            else:
-                probs = torch.softmax(logits, dim=1)
-                prob_fake = probs[0][1].item()
-                predicted_label = torch.argmax(probs, dim=1).item()
-
+            prob_fake = torch.sigmoid(logits).item() if self.num_classes == 1 else torch.softmax(logits, dim=1)[
+                0, 1].item()
+            predicted_label = 1 if prob_fake > 0.5 else 0
             confidence = prob_fake if predicted_label == 1 else (1 - prob_fake)
 
-        # 5. generate heatmap
-        heatmap = None
-        if self.cam_method == CAM_TYPE.LAYER.value:
-            heatmap = self.make_layercam_heatmap(input_tensor, self.target_layers)
+        # Generate heatmap
+        heatmap = self.make_layercam_heatmap(input_tensor,
+                                             self.target_layers) if self.cam_method == CAM_TYPE.LAYER.value else None
 
-        prediction_info = {
+        if self.debug_mode and heatmap is not None:
+            print(f"   📊 Heatmap stats: shape={heatmap.shape}, range=[{heatmap.min():.3f}, {heatmap.max():.3f}]")
+
+        return heatmap, {
             'predicted_label': predicted_label,
             'confidence': confidence,
             'prob_fake': prob_fake
@@ -379,7 +306,7 @@ class CamBaseService:
 
         print("done.")
 
-    def _update_paths(self):
+    def update_paths(self):
         """
         Internal helper to re-calculate paths and folders based on current state.
         Should be called whenever experiment, dataset_name, or model_name changes.

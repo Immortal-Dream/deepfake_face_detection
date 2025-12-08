@@ -5,11 +5,12 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-from utils.region_utils import analyze_attention_polygon
+from utils.region_utils import analyze_attention_polygon, FACIAL_REGIONS
 
 
 class FacialRegionService:
-    def __init__(self, threshold_quantile=0.7, min_threshold=0.1, experiment_name='MobileNetV3Large_baseline', dataset_name='rvf10k'):
+    def __init__(self, threshold_quantile=0.7, min_threshold=0.1, experiment_name='MobileNetV3Large_baseline',
+                 dataset_name='rvf10k'):
         """
         initialize facial region analysis service
 
@@ -116,9 +117,13 @@ class FacialRegionService:
         # detect landmarks if not provided
         if landmarks is None and image is not None:
             landmarks = self.detect_facial_landmarks(image)
+        region_attention = {region: 0 for region in FACIAL_REGIONS.keys()}
+        is_failed = True
 
-        # analyze facial regions
-        region_attention = self.analyze_facial_region(heatmap, landmarks)
+        if landmarks is not None:
+            # analyze facial regions
+            region_attention = self.analyze_facial_region(heatmap, landmarks)
+            is_failed = False
 
         # construct result row
         result_row = {
@@ -126,6 +131,7 @@ class FacialRegionService:
             "prediction": prediction if prediction is not None else -1,
             "true_label": true_label if true_label is not None else -1,
             "confidence": confidence if confidence is not None else 0.0,
+            "is_failed": 1 if is_failed else 0,
         }
 
         # add regional attention flags
