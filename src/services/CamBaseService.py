@@ -46,8 +46,6 @@ class ModelOutputWrapper(nn.Module):
         return output
 
 
-# --------------------------------------------------
-
 class CamBaseService:
     def __init__(self, experiment: BaseExperiment = None, model_name=None, cam_method=CAM_TYPE.LAYER.value,
                  image_mode=LOAD_MODE.ONLY_FAKE.value):
@@ -257,7 +255,7 @@ class CamBaseService:
                 print(f"Targeting layer: backbone.block12 (Higher Resolution)")
                 return [backbone.block12]
 
-            elif hasattr(backbone, 'block11'):
+            if hasattr(backbone, 'block13'):
                 print(f"Targeting layer: backbone.block11")
                 return [backbone.block11]
 

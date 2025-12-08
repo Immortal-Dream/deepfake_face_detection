@@ -1,5 +1,8 @@
 import argparse
 import warnings
+
+from utils.region_utils import analyze_attention_polygon
+
 warnings.filterwarnings('ignore')
 
 import numpy as np
@@ -52,37 +55,6 @@ class HuggingfaceToTensorModelWrapper(torch.nn.Module):
     def forward(self, x):
         return self.model(pixel_values=x).logits
 
-def analyze_attention(heatmap, landmarks, threshold=0.3):
-    """Which regions have attention > threshold"""
-    if heatmap.max() - heatmap.min() > 0:
-        heatmap = (heatmap - heatmap.min()) / (heatmap.max() - heatmap.min())
-
-    if landmarks is None:
-        return {}
-    
-    results = {}
-    for region_name, indices in FACIAL_REGIONS.items():
-        region_points = landmarks[indices]
-        if len(region_points) < 3:
-            results[region_name] = 0
-            continue
-            
-        # Simple bounding box approach
-        x_min, y_min = region_points.min(axis=0)
-        x_max, y_max = region_points.max(axis=0)
-        
-        # Get attention in this region
-        x_min, x_max = int(x_min), int(x_max)
-        y_min, y_max = int(y_min), int(y_max)
-        
-        if 0 <= x_min < x_max < heatmap.shape[1] and 0 <= y_min < y_max < heatmap.shape[0]:
-            region_attention = heatmap[y_min:y_max, x_min:x_max]
-            max_attention = np.max(region_attention)
-            results[region_name] = 1 if max_attention > threshold else 0
-        else:
-            results[region_name] = 0
-    
-    return results
 
 def reshape_transform_vit_huggingface(x):
     # Remove CLS token
@@ -313,7 +285,7 @@ if __name__ == "__main__":
             for i, (result, filename, true_label, pred_label, confidence) in enumerate(
                 zip(results, batch_filenames, batch_true_labels, batch_pred_labels, batch_confidences)):
                 
-                region_attention = analyze_attention(result, landmarks_list[i])
+                region_attention = analyze_attention_polygon(result, landmarks_list[i])
                 
                 csv_row = {
                     "filename": Path(filename).name,

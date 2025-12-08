@@ -5,6 +5,8 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
+from utils.region_utils import analyze_attention_polygon
+
 
 class FacialRegionService:
     def __init__(self, threshold=0.3, experiment_name='MobileNetV3Large_baseline', dataset_name='rvf10k'):
@@ -85,66 +87,14 @@ class FacialRegionService:
 
     def analyze_facial_region(self, heatmap, landmarks=None, threshold=None):
         """
-        analyze which facial regions are activated by the heatmap
-
-        args:
-            heatmap: gradcam-generated heatmap (h x w matrix)
-            landmarks: coordinates of 81 facial feature points, shape (81, 2)
-                      if None, regions will all be marked as 0
-            threshold: activation threshold (default uses self.threshold)
-
-        returns:
-            results = {
-                "jaw": 1,        # 1 = activated, 0 = not activated
-                "eyebrows": 0,
-                "nose": 1,
-                ...
-            }
+        analyze which facial regions are activated by the heatmap using polygon masks.
+        Wrapper around the utility function.
         """
         # use instance threshold if not specified
-        if threshold is None:
-            threshold = self.threshold
+        t = threshold if threshold is not None else self.threshold
 
-        # step 1: normalize heatmap to [0, 1]
-        if heatmap.max() - heatmap.min() > 0:
-            heatmap = (heatmap - heatmap.min()) / (heatmap.max() - heatmap.min())
-
-        # if no landmarks provided, return all zeros
-        if landmarks is None:
-            return {region: 0 for region in self.FACIAL_REGIONS.keys()}
-
-        results = {}
-
-        # step 2: iterate through each facial region
-        for region_name, indices in self.FACIAL_REGIONS.items():
-            # get feature points for this region
-            region_points = landmarks[indices]
-
-            # skip if insufficient points
-            if len(region_points) < 3:
-                results[region_name] = 0
-                continue
-
-            # step 3: calculate bounding box for this region
-            x_min, y_min = region_points.min(axis=0)
-            x_max, y_max = region_points.max(axis=0)
-
-            # convert to integer coordinates
-            x_min, x_max = int(x_min), int(x_max)
-            y_min, y_max = int(y_min), int(y_max)
-
-            # step 4: extract heatmap values in this region
-            if 0 <= x_min < x_max < heatmap.shape[1] and 0 <= y_min < y_max < heatmap.shape[0]:
-                region_attention = heatmap[y_min:y_max, x_min:x_max]
-
-                # step 5: determine if region is activated
-                max_attention = np.max(region_attention)
-                results[region_name] = 1 if max_attention > threshold else 0
-            else:
-                # coordinates out of bounds
-                results[region_name] = 0
-
-        return results
+        # Call the new polygon-based utility function
+        return analyze_attention_polygon(heatmap, landmarks, threshold=t)
 
     def add_result(self, filename, heatmap, image=None, landmarks=None,
                    prediction=None, true_label=None, confidence=None):
