@@ -55,7 +55,7 @@ class FacialRegionService:
             self.predictor = dlib.shape_predictor(str(landmark_model_path))
             print(f"loaded 81-point facial landmark predictor from {landmark_model_path}")
 
-    def detect_facial_landmarks(self, image):
+    def detect_facial_landmarks(self, image, filename):
         """
         detect 81 facial landmarks in an image
 
@@ -79,7 +79,7 @@ class FacialRegionService:
         faces = self.detector(gray)
 
         if len(faces) == 0:
-            print("warning: no face detected in image")
+            print(f"warning: no face detected in image - {filename}")
             return None
 
         # get landmarks from first detected face
@@ -116,7 +116,7 @@ class FacialRegionService:
         """
         # detect landmarks if not provided
         if landmarks is None and image is not None:
-            landmarks = self.detect_facial_landmarks(image)
+            landmarks = self.detect_facial_landmarks(image, filename)
         region_attention = {region: 0 for region in FACIAL_REGIONS.keys()}
         is_failed = True
 

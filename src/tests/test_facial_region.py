@@ -1,13 +1,11 @@
 import torch
 import numpy as np
 
-# Adjust imports based on your project structure
 from src.services.CamBaseService import CamBaseService, CAM_TYPE
 from src.services.FacialRegionService import FacialRegionService
 from src.config.path_config import *
 from config.LOAD_MODE import LOAD_MODE
 
-# Import your experiment classes
 from src.experiments.XceptionPyTorchExperiment import XceptionPyTorchExperiment
 from src.experiments.baselines.BlockShuffleLearning.models.xception import XceptionBSL
 from src.experiments.baselines.ShuffleNetV2.ShuffleNetV2Experiment import ShuffleNetV2Experiment
@@ -31,7 +29,7 @@ def run_model_analysis(
     model_path = MODEL_FOLDER / model_filename
 
     if not model_path.exists():
-        print(f"❌ MODEL NOT FOUND: {model_path}")
+        print(f"MODEL NOT FOUND: {model_path}")
         return
 
     # Setup experiment
@@ -156,7 +154,7 @@ def test_facial_region():
                 dataset_name=dataset_name,
                 min_threshold=0.5,
                 threshold_quantile=0.8,
-                batch_limit=100
+                batch_limit=5000
             )
 
     # 2. Run Analysis for ShuffleNetV2
@@ -172,5 +170,5 @@ def test_facial_region():
                 dataset_name=dataset_name,
                 min_threshold=0.5,
                 threshold_quantile=0.8,
-                batch_limit=100
+                batch_limit=5000
             )

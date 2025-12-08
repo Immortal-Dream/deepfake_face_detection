@@ -12,8 +12,11 @@ rvf10k = "rvf10k"
 STARGAN = "STARGAN"
 TAMING_TRANSFORMER_VQGAN = "taming_transformer_VQGAN"
 STABLE_DIFFUSION = "StableDiffusion"
-
 DATASET_LIST = [DALLE2, LATENT_DIFFUSION, MIDJOURNEY, rvf10k, STABLE_DIFFUSION, STARGAN, TAMING_TRANSFORMER_VQGAN]
+
+# Experiment name
+ShuffleNetV2_baseline = 'ShuffleNetV2_baseline'
+Xception_BSL_baseline = 'Xception_BSL_baseline'
 
 # -----------------------------
 # DATASET ROOTS
