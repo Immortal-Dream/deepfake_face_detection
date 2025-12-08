@@ -5,31 +5,32 @@ from src.services.CamBaseService import *
 
 
 def test_cam_service_xception():
+    skipped = set()
+    for dataset_name in DATASET_LIST:
+        config = {"dataset_name": dataset_name,
+                  'epochs': 1,
+                  'batch_size': 10,
+                  'image_size': 224}
 
-    config = {"dataset_name": DALLE2,
-              'epochs': 1,
-              'batch_size': 10,
-              'image_size': 224}
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = XceptionBSL(num_class=1, is_train=False, is_bs_adv=True, is_rs_adv=True).eval().to(device)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model = XceptionBSL(num_class=1, is_train=False, is_bs_adv=True, is_rs_adv=True).eval().to(device)
+        experiment = XceptionPyTorchExperiment(config=config, model=model, device=device)
+        experiment.dataset_name = dataset_name
+        model_filename = 'xception_BSL_' + dataset_name + '.pth'
 
-    experiment = XceptionPyTorchExperiment(config=config, model=model, device=device)
-    experiment.dataset_name = DALLE2
-    model_filename = 'xception_BSL_dalle2.pth'
+        cam_service = CamBaseService(
+            experiment=experiment,
+            model_name=model_filename,
+            cam_method=CAM_TYPE.LAYER.value,
+            image_mode=LOAD_MODE.ONLY_FAKE.value,
+        )
+        # set batch limit (how many images to process)
+        cam_service.batch_limit = 10
 
-    cam_service = CamBaseService(
-        experiment=experiment,
-        model_name=model_filename,
-        cam_method=CAM_TYPE.LAYER.value,
-        image_mode=LOAD_MODE.ONLY_FAKE.value,
-    )
+        print("starting cam generation...")
+        # run the service
+        cam_service.run()
 
-    # set batch limit (how many images to process)
-    cam_service.batch_limit = 10
-
-    print("starting cam generation...")
-    # run the service
-    cam_service.run()
 
 def test_cam_service_shuffle_net():
     # set random seeds for reproducibility
@@ -70,7 +71,7 @@ def test_cam_service_shuffle_net():
     )
 
     # set batch limit (how many images to process)
-    cam_service.batch_limit = 5
+    cam_service.batch_limit = 10
 
     print("starting cam generation...")
     # run the service

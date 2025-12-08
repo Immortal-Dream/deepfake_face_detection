@@ -27,7 +27,6 @@ class CAM_TYPE(Enum):
     EigenGrad = 'EigenGrad_cam'
 
 
-
 class ModelOutputWrapper(nn.Module):
     def __init__(self, model):
         super(ModelOutputWrapper, self).__init__()
@@ -50,7 +49,7 @@ class ModelOutputWrapper(nn.Module):
 # --------------------------------------------------
 
 class CamBaseService:
-    def __init__(self, experiment: BaseExperiment, model_name=None, cam_method=CAM_TYPE.LAYER.value,
+    def __init__(self, experiment: BaseExperiment = None, model_name=None, cam_method=CAM_TYPE.LAYER.value,
                  image_mode=LOAD_MODE.ONLY_FAKE.value):
         self.experiment = experiment
         self.experiment_name = experiment.experiment_name
@@ -81,6 +80,27 @@ class CamBaseService:
         # cache
         self.target_layers = None
         self.num_classes = 1  # default, will be updated in load_model
+
+    def set_experiment(self, experiment: BaseExperiment):
+        """
+        Update the experiment object and refresh all dependent paths/configs.
+        """
+        print(f"Updating experiment to: {experiment.experiment_name}")
+        self.experiment = experiment
+        self._update_paths()
+
+    def set_dataset_name(self, dataset_name: str):
+        """
+        Update the dataset name and refresh all dependent paths/configs.
+        """
+        print(f"Updating dataset name to: {dataset_name}")
+        self.dataset_name = dataset_name
+
+        # If experiment object exists, sync it too to avoid inconsistency
+        if self.experiment:
+            self.experiment.dataset_name = dataset_name
+
+        self._update_paths()
 
     def save_cam_image(self, original_img, heatmap, filename, alpha=0.5):
         '''
@@ -128,7 +148,8 @@ class CamBaseService:
         print(f"loading model from {self.model_path}")
 
         if not os.path.exists(self.model_path):
-            raise FileNotFoundError(f"model file not found at {self.model_path}")
+            print(f"warning: model file not found at {self.model_path}, skipping load.")
+            return
 
         # 1. load the checkpoint
         checkpoint = torch.load(self.model_path, map_location=self.device)
@@ -232,20 +253,20 @@ class CamBaseService:
         # 1. Check for XceptionBSL
         if hasattr(model, 'xception'):
             backbone = model.xception
-            if hasattr(backbone, 'conv4'):
-                return [backbone.conv4]
-            elif hasattr(backbone, 'block12'):
+            if hasattr(backbone, 'block12'):
+                print(f"Targeting layer: backbone.block12 (Higher Resolution)")
                 return [backbone.block12]
-            else:
-                last_conv = None
-                for module in backbone.modules():
-                    if isinstance(module, torch.nn.Conv2d):
-                        last_conv = module
-                if last_conv:
-                    return [last_conv]
+
+            elif hasattr(backbone, 'block11'):
+                print(f"Targeting layer: backbone.block11")
+                return [backbone.block11]
 
         # 2. Check for ShuffleNetV2
-        if hasattr(model, 'conv5'):
+        if hasattr(model, 'stage3'):
+            print("Targeting layer: ShuffleNetV2 stage3 (Higher Resolution 14x14)")
+            return [model.stage3[-1]]
+
+        elif hasattr(model, 'conv5'):
             return [model.conv5]
 
         # 3. Check for MobileNet
@@ -349,7 +370,7 @@ class CamBaseService:
                 display_confidence = pred_info['confidence']
 
                 if heatmap is not None:
-                    output_filename = f"{self.cam_method}_{filename}_gt{ground_truth}_pred{predicted_label}_conf{display_confidence:.2f}.jpg"
+                    output_filename = f"{self.cam_method}_{filename}_gt{ground_truth}_pred{predicted_label}.jpg"
                     self.save_cam_image(original_img, heatmap, output_filename)
                     print(f"saved {output_filename}")
 
@@ -359,3 +380,35 @@ class CamBaseService:
                 traceback.print_exc()
 
         print("done.")
+
+    def _update_paths(self):
+        """
+        Internal helper to re-calculate paths and folders based on current state.
+        Should be called whenever experiment, dataset_name, or model_name changes.
+        """
+        # Update experiment name if experiment object exists
+        if self.experiment:
+            self.experiment_name = self.experiment.experiment_name
+            # Also sync dataset name from experiment if not explicitly overridden elsewhere
+            # (Optional: depends on your logic, usually experiment holds the truth)
+            if hasattr(self.experiment, 'dataset_name'):
+                self.dataset_name = self.experiment.dataset_name
+
+        # Recalculate model path
+        # If model_name wasn't manually fixed, regenerate it based on new names
+        if not self.model_name or (self.dataset_name and self.experiment_name in self.model_name):
+            self.model_name = f"{self.dataset_name}_{self.experiment_name}_model.pth"
+
+        self.model_path = MODEL_FOLDER / self.model_name
+
+        # Recalculate output folder
+        self.cam_output_folder = OUTPUT_FOLDER / self.experiment_name / self.dataset_name / self.cam_method
+
+        # Ensure directory exists
+        if not os.path.exists(self.cam_output_folder):
+            os.makedirs(self.cam_output_folder)
+            print(f"Created updated output directory: {self.cam_output_folder}")
+
+        # Reset caches because model/data changed
+        self.target_layers = None
+        # self.num_classes might need reset too, but usually happens in load_model

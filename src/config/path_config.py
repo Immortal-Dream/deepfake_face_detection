@@ -4,14 +4,16 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent
 DATA_ROOT = PROJECT_ROOT / "data"
 
 # Constants
-rvf10k = "rvf10k"
-STARGAN = "STARGAN"
-STABLE_DIFFUSION = "StableDiffusion"
+
 DALLE2 = "dalle2"
 LATENT_DIFFUSION = "latent_diffusion"
 MIDJOURNEY = "midjourney"
+rvf10k = "rvf10k"
+STARGAN = "STARGAN"
 TAMING_TRANSFORMER_VQGAN = "taming_transformer_VQGAN"
+STABLE_DIFFUSION = "StableDiffusion"
 
+DATASET_LIST = [DALLE2, LATENT_DIFFUSION, MIDJOURNEY, rvf10k, STABLE_DIFFUSION, STARGAN, TAMING_TRANSFORMER_VQGAN]
 
 # -----------------------------
 # DATASET ROOTS

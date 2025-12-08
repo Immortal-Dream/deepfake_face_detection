@@ -5,8 +5,6 @@ from pathlib import Path
 from sklearn.metrics import confusion_matrix
 from src.services.F1MetricsCallback import F1MetricsCallback
 import torch
-from sklearn.metrics import f1_score
-
 
 
 class PlotService:
@@ -17,8 +15,7 @@ class PlotService:
     def __init__(self, experiment_name: str, output_dir: Path, experiment_config: dict):
         self.experiment_name = experiment_name
         self.output_dir = output_dir
-        self.config = experiment_config   
-
+        self.config = experiment_config
 
     def plot_confusion_matrix(self, model, X_test, y_test, label_dict: dict):
         """
@@ -124,7 +121,6 @@ class PlotService:
 
         dataset = self.config.get("dataset_name", "unknown")
 
-
         save_path = self.output_dir / f"{dataset}_confusion_matrix.png"
 
         plt.savefig(save_path, dpi=300)
@@ -144,12 +140,12 @@ class PlotService:
         # Plot training F1 if exists
         if len(train_f1) > 0:
             plt.plot(range(1, len(train_f1) + 1), train_f1,
-                    label="Training F1", color="red", linewidth=2)
+                     label="Training F1", color="red", linewidth=2)
 
         # Plot validation F1 if exists
         if len(val_f1) > 0:
             plt.plot(range(1, len(val_f1) + 1), val_f1,
-                    label="Validation F1", color="blue", linewidth=2)
+                     label="Validation F1", color="blue", linewidth=2)
 
         plt.xlabel("Epochs")
         plt.ylabel("F1 Score")
@@ -165,6 +161,3 @@ class PlotService:
         plt.close()
 
         print(f"[INFO] PyTorch F1 curves saved to: {save_path}")
-
-
-
