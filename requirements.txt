@@ -9,7 +9,8 @@ tensorflow==2.15.0
 pathlib~=1.0.1
 seaborn~=0.12.2
 matplotlib~=3.7.0
-tqdm
+tqdm~=4.64.1
 transformers>=4.30,<4.40
 grad-cam
-dlib
+dlib~=20.0.0
+scipy~=1.15.3

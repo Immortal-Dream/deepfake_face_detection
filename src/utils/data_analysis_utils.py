@@ -1,6 +1,8 @@
+import numpy as np
+
 from src.config.path_config import *
 import pandas as pd
-import os
+from scipy import stats
 import matplotlib.pyplot as plt
 import seaborn as sns
 from src.config.path_config import *
@@ -124,7 +126,160 @@ def model_sensitivity_analysis(experiment_name: str, dataset_name: str):
         print(f"Skipped plotting due to error: {e}")
 
 
-# Usage Example
-if __name__ == "__main__":
-    for dataset in DATASET_LIST:
-        model_sensitivity_analysis(Xception_BSL_baseline, dataset)
+def _get_valid_data(experiment_name, dataset_name):
+    """
+    Internal helper function: read and clean data,
+    return valid samples and their total count.
+    """
+    csv_path = OUTPUT_FOLDER / experiment_name / dataset_name / 'layercam_analysis.csv'
+
+    if not csv_path.exists():
+        print(f"[Error] CSV not found: {csv_path}")
+        return None, 0
+
+    try:
+        df = pd.read_csv(csv_path)
+    except Exception as e:
+        print(f"[Error] Reading CSV {csv_path}: {e}")
+        return None, 0
+
+    # Data cleaning: remove samples where face detection failed
+    if 'is_failed' in df.columns:
+        valid_df = df[df['is_failed'] == 0]
+    else:
+        valid_df = df  # backward compatibility if 'is_failed' column does not exist
+
+    return valid_df, len(valid_df)
+
+
+def compare_models_difference(experiment_name1, experiment_name2, dataset_name):
+    """
+    Compare the dependency of two models on facial regions
+    within the same dataset.
+
+    Metrics calculated:
+        - Absolute difference (Delta)
+        - Relative change rate
+        - Odds Ratio (OR)
+        - Z-test p-value
+
+    Args:
+        experiment_name1 (str): Model A (baseline/control)
+        experiment_name2 (str): Model B (comparison target)
+        dataset_name (str): Dataset name
+    """
+
+    print(f"\n{'=' * 20} Comparing Models: {experiment_name1} vs {experiment_name2} {'=' * 20}")
+
+    # 1. Load data
+    df_A, N_A = _get_valid_data(experiment_name1, dataset_name)
+    df_B, N_B = _get_valid_data(experiment_name2, dataset_name)
+
+    if df_A is None or df_B is None or N_A == 0 or N_B == 0:
+        print("[Error] Invalid data source or empty data. Comparison aborted.")
+        return
+
+    print(f"Sample Size Model A ({experiment_name1}): {N_A}")
+    print(f"Sample Size Model B ({experiment_name2}): {N_B}")
+
+    # 2. Define facial regions to analyze
+    region_columns = [
+        'attention_jaw', 'attention_eyebrows', 'attention_nose',
+        'attention_eyes', 'attention_mouth', 'attention_forehead'
+    ]
+
+    # Ensure columns exist in both datasets
+    valid_cols = [c for c in region_columns if c in df_A.columns and c in df_B.columns]
+
+    comparison_results = []
+
+    # 3. Statistical comparison for each region
+    for col in valid_cols:
+        region_name = col.replace('attention_', '').capitalize()
+
+        # Activation counts
+        C_A = df_A[col].sum()
+        C_B = df_B[col].sum()
+
+        # Proportions
+        p_A = C_A / N_A
+        p_B = C_B / N_B
+
+        # --- 3.1 Descriptive comparison ---
+
+        # 1) Absolute difference (Delta)
+        delta = p_A - p_B
+
+        # 2) Relative change rate
+        if p_B == 0:
+            rel_change = np.inf if p_A > 0 else 0
+        else:
+            rel_change = (p_A - p_B) / p_B
+
+        # 3) Odds Ratio (OR)
+        epsilon = 1e-9  # small constant to avoid division by zero
+        odds_A = (p_A + epsilon) / (1 - p_A + epsilon)
+        odds_B = (p_B + epsilon) / (1 - p_B + epsilon)
+        odds_ratio = odds_A / odds_B
+
+        # --- 3.2 Hypothesis testing (two-sample proportion Z-test) ---
+
+        # Pooled proportion
+        p_hat = (C_A + C_B) / (N_A + N_B)
+
+        # Standard error
+        se_term = p_hat * (1 - p_hat) * ((1 / N_A) + (1 / N_B))
+        se = np.sqrt(se_term)
+
+        # Z-score and p-value
+        if se == 0:
+            z_score = 0.0
+            p_value = 1.0
+        else:
+            z_score = (p_A - p_B) / se
+            p_value = 2 * (1 - stats.norm.cdf(abs(z_score)))  # two-tailed test
+
+        # Collect results
+        comparison_results.append({
+            "Region": region_name,
+            f"Rate_A ({experiment_name1})": round(p_A, 4),
+            f"Rate_B ({experiment_name2})": round(p_B, 4),
+            "Abs_Diff (Delta)": round(delta, 4),
+            "Rel_Change (%)": round(rel_change * 100, 2),
+            "Odds_Ratio": round(odds_ratio, 4),
+            "Z_Score": round(z_score, 4),
+            "P_Value": p_value,
+            "Significant": "*" if p_value < 0.05 else ""  # significance marker
+        })
+
+    # 5. Convert results to DataFrame
+    res_df = pd.DataFrame(comparison_results)
+
+    # Print formatted table
+    print("\n[Comparison Result] (Significant difference marked with *)")
+    print("-" * 120)
+    header = f"{'Region':<12} | {'Rate A':<8} | {'Rate B':<8} | {'Diff':<8} | {'RelChg%':<8} | {'OR':<6} | {'Z-score':<8} | {'P-Value':<8}"
+    print(header)
+    print("-" * 120)
+
+    for _, row in res_df.iterrows():
+        p_val_str = "< 0.001" if row['P_Value'] < 0.001 else f"{row['P_Value']:.4f}"
+        sig_mark = row['Significant']
+
+        line = (f"{row['Region']:<12} | {row[f'Rate_A ({experiment_name1})']:<8} | "
+                f"{row[f'Rate_B ({experiment_name2})']:<8} | {row['Abs_Diff (Delta)']:<8} | "
+                f"{row['Rel_Change (%)']:<8} | {row['Odds_Ratio']:<6} | "
+                f"{row['Z_Score']:<8} | {p_val_str:<8} {sig_mark}")
+        print(line)
+    print("-" * 120)
+
+    # 6. Save results to CSV
+    output_dir = OUTPUT_FOLDER / "model_comparison" / dataset_name
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    output_filename = f"compare_{experiment_name1}_vs_{experiment_name2}.csv"
+    output_path = output_dir / output_filename
+
+    res_df.to_csv(output_path, index=False)
+    print(f"\nComparison detailed report saved to: {output_path}")
+

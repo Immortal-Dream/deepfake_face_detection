@@ -17,6 +17,7 @@ DATASET_LIST = [DALLE2, LATENT_DIFFUSION, MIDJOURNEY, rvf10k, STABLE_DIFFUSION, 
 # Experiment name
 ShuffleNetV2_baseline = 'ShuffleNetV2_baseline'
 Xception_BSL_baseline = 'Xception_BSL_baseline'
+ViT_baseline = 'ViT_baseline'
 
 # -----------------------------
 # DATASET ROOTS
