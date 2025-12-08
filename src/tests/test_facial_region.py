@@ -23,12 +23,11 @@ def run_analysis_pipeline(experiment, model_filename, dataset_name, threshold=0.
     print(f"========================================================")
 
     # 1. Initialize Services
-    # CamBaseService handles model loading, image loading, and CAM generation
     cam_service = CamBaseService(
         experiment=experiment,
         model_name=model_filename,
         cam_method=CAM_TYPE.LAYER.value,
-        image_mode=LOAD_MODE.ONLY_FAKE.value  # or ALL, depending on your needs
+        image_mode=LOAD_MODE.ONLY_FAKE.value
     )
 
     if batch_limit:
@@ -46,6 +45,11 @@ def run_analysis_pipeline(experiment, model_filename, dataset_name, threshold=0.
     cam_service.load_model()
     images, labels, filenames = cam_service.load_images()
 
+    # Safety check if no images loaded
+    if len(images) == 0:
+        print(f"No images found for {dataset_name}. Skipping.")
+        return
+
     num_images = min(len(images), cam_service.batch_limit)
     print(f"Processing {num_images} images...")
 
@@ -57,7 +61,6 @@ def run_analysis_pipeline(experiment, model_filename, dataset_name, threshold=0.
             true_label = int(labels[i])
 
             # A. Generate Heatmap & Get Prediction
-            # process_single_image does normalization, inference, and cam generation
             heatmap, pred_info = cam_service.process_single_image(image_rgb)
 
             if heatmap is None:
@@ -65,9 +68,6 @@ def run_analysis_pipeline(experiment, model_filename, dataset_name, threshold=0.
                 continue
 
             # B. Analyze Facial Regions
-            # This function detects landmarks on the original image, overlays the heatmap,
-            # and determines which regions (eyes, nose, etc.) are 'attended' to.
-            # It internally adds the result row to facial_service.accumulated_result.
             facial_service.add_result(
                 filename=filename,
                 heatmap=heatmap,
@@ -86,65 +86,100 @@ def run_analysis_pipeline(experiment, model_filename, dataset_name, threshold=0.
             traceback.print_exc()
 
     # 4. Save Final CSV Report
+    # Note: save_results_to_csv inside FacialRegionService usually needs a filename arg
+    # or defaults to "layercam_analysis.csv". We make it unique here.
     csv_name = f"analysis_{dataset_name}_{experiment.experiment_name}.csv"
     saved_path = facial_service.save_results_to_csv(filename=csv_name)
     print(f"Analysis complete. Results saved to: {saved_path}")
+
+
+def run_model_analysis(
+        experiment_class,
+        model_prefix: str,
+        dataset_name: str,
+        threshold: float = 0.5,
+        batch_limit: int = 100
+):
+    """
+    Generic analysis runner for different models.
+    Handles specific initialization logic for Xception vs ShuffleNet.
+    """
+    print(f"\n>>> Starting {experiment_class.__name__} Analysis for {dataset_name} <<<")
+
+    # Construct model filename
+    model_filename = f"{model_prefix}{dataset_name}.pth"
+
+    # Check if model file exists
+    if not (MODEL_FOLDER / model_filename).exists():
+        print(f"Skipping {experiment_class.__name__}: {model_filename} not found.")
+        return
+
+    # Define experiment configuration
+    config = {
+        "dataset_name": dataset_name,  # Critical for path configs inside experiment
+        "epochs": 1,
+        "batch_size": 10,
+        "image_size": 224
+    }
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # --- FIX: Handle different class initializations ---
+    if experiment_class == XceptionPyTorchExperiment:
+        # Xception needs model and device in init
+        # We initialize a base model structure here, load_weights will happen inside CamBaseService later
+        model = XceptionBSL(num_class=1, is_train=False, is_bs_adv=True, is_rs_adv=True).eval().to(device)
+        experiment = experiment_class(config=config, model=model, device=device)
+    else:
+        # Standard initialization (e.g. ShuffleNetV2Experiment)
+        experiment = experiment_class(config)
+
+    experiment.dataset_name = dataset_name
+
+    # Run analysis pipeline
+    run_analysis_pipeline(
+        experiment=experiment,
+        model_filename=model_filename,
+        dataset_name=dataset_name,
+        threshold=threshold,
+        batch_limit=batch_limit
+    )
 
 
 def test_facial_region():
     # Set seeds for reproducibility
     np.random.seed(42)
     torch.manual_seed(42)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # --- Configuration ---
-    # You can loop through datasets or pick specific ones
-    target_datasets = DATASET_LIST  # e.g. ['dalle2', 'midjourney', ...]
+    target_datasets = DATASET_LIST
+
+    run_xception = True
+    run_shuffle = True
 
     # 1. Run Analysis for Xception (BSL)
-    print("\n>>> Starting Xception Analysis <<<")
-    for dataset_name in target_datasets:
-        # Check if model file exists first to avoid crashes
-        model_filename = f'xception_BSL_{dataset_name}.pth'
-        if not (MODEL_FOLDER / model_filename).exists():
-            print(f"Skipping {dataset_name}: Model file {model_filename} not found.")
-            continue
+    if run_xception:
+        print("\n>>> Batch Running Xception Analysis <<<")
+        for dataset_name in target_datasets:
+            run_model_analysis(
+                experiment_class=XceptionPyTorchExperiment,
+                model_prefix="xception_BSL_",
+                dataset_name=dataset_name,
+                threshold=0.75,
+                batch_limit=100
+            )
 
-        # Setup Experiment Object
-        config = {
-            "dataset_name": dataset_name,
-            'epochs': 1, 'batch_size': 10, 'image_size': 224
-        }
-        # Initialize model architecture
-        model = XceptionBSL(num_class=1, is_train=False, is_bs_adv=True, is_rs_adv=True).eval().to(device)
-        experiment = XceptionPyTorchExperiment(config=config, model=model, device=device)
-        experiment.dataset_name = dataset_name
-
-        # Run Pipeline
-        run_analysis_pipeline(
-            experiment=experiment,
-            model_filename=model_filename,
-            dataset_name=dataset_name,
-            threshold=0.3,  # Adjust attention threshold as needed
-            batch_limit=50
-        )
-
-    # 2. Run Analysis for ShuffleNetV2 (Example for specific dataset 'rvf10k')
-    print("\n>>> Starting ShuffleNetV2 Analysis <<<")
-    shuffle_dataset = "rvf10k"
-    shuffle_model_name = "rvf10k_ShuffleNetV2_baseline_model.pth"
-
-    if (MODEL_FOLDER / shuffle_model_name).exists():
-        config = {'epochs': 1, 'batch_size': 10, 'image_size': 224}
-        experiment = ShuffleNetV2Experiment(config)
-        experiment.dataset_name = shuffle_dataset
-
-        run_analysis_pipeline(
-            experiment=experiment,
-            model_filename=shuffle_model_name,
-            dataset_name=shuffle_dataset,
-            threshold=0.3,
-            batch_limit=50
-        )
-    else:
-        print(f"Skipping ShuffleNet: {shuffle_model_name} not found.")
+    # 2. Run Analysis for ShuffleNetV2
+    if run_shuffle:
+        print("\n>>> Batch Running ShuffleNetV2 Analysis <<<")
+        for dataset_name in target_datasets:
+            run_model_analysis(
+                experiment_class=ShuffleNetV2Experiment,
+                model_prefix="ShuffleNetV2_baseline_",
+                # Note: Check your actual file naming convention.
+                # It might be f"{dataset_name}_ShuffleNetV2_baseline_model.pth" based on previous logs.
+                # Adjust model_prefix logic if filenames vary by dataset position.
+                dataset_name=dataset_name,
+                threshold=0.7,
+                batch_limit=100
+            )
