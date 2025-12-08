@@ -63,10 +63,11 @@ python main.py
 python -m src.experiments.baselines.ShuffleNetV2.main --epochs 15 --batch_size 32 --lr 1e-3 --image_size 224
 ```
 
-### 4\. Run GradCAM Analysis
+### 4\. Run CAM Analysis
 - Method 1:
 ```commandline
-python -m src.experiments.baselines.ViT.grad_cam --dataset rvf10k
+python -m src.experiments.baselines.ViT.ViTCam --dataset rvf10k --mode visualization
+python -m src.experiments.baselines.ViT.ViTCam --dataset rvf10k --mode analysis
 ```
 
 ### 5. Dataset Configuration Notes
