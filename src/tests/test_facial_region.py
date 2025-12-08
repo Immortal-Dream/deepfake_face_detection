@@ -156,7 +156,7 @@ def test_facial_region():
                 dataset_name=dataset_name,
                 min_threshold=0.5,
                 threshold_quantile=0.8,
-                batch_limit=10
+                batch_limit=100
             )
 
     # 2. Run Analysis for ShuffleNetV2
@@ -172,5 +172,5 @@ def test_facial_region():
                 dataset_name=dataset_name,
                 min_threshold=0.5,
                 threshold_quantile=0.8,
-                batch_limit=10
+                batch_limit=100
             )
