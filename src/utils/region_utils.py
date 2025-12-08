@@ -14,14 +14,15 @@ FACIAL_REGIONS = {
 }
 
 
-def analyze_attention_polygon(heatmap, landmarks, threshold=0.3):
+def analyze_attention_polygon(heatmap, landmarks, threshold_quantile=0.7, min_threshold=0.1):
     """
     Analyze which facial regions are activated by the heatmap using precise polygons.
 
     Args:
         heatmap: GradCAM-generated heatmap (H x W matrix), unnormalized or normalized.
         landmarks: Coordinates of facial feature points, shape (N, 2).
-        threshold: Activation threshold (0.0 to 1.0).
+        threshold_quantile: Quantile to use as threshold (e.g., 0.7 = 70th percentile).
+        min_threshold: Minimum threshold value to use even if quantile is lower (default 0.1).
 
     Returns:
         results: Dict with region names as keys and 1 (activated) or 0 (not activated) as values.
@@ -33,7 +34,11 @@ def analyze_attention_polygon(heatmap, landmarks, threshold=0.3):
     if heatmap.max() - heatmap.min() > 0:
         heatmap_norm = (heatmap - heatmap.min()) / (heatmap.max() - heatmap.min())
     else:
-        heatmap_norm = heatmap
+        # Uniform heatmap - no region has attention
+        return {region: 0 for region in FACIAL_REGIONS.keys()}
+
+    # Calculate adaptive threshold based on quantile
+    threshold = max(np.quantile(heatmap_norm, threshold_quantile), min_threshold)
 
     results = {}
     h, w = heatmap_norm.shape

@@ -9,17 +9,19 @@ from utils.region_utils import analyze_attention_polygon
 
 
 class FacialRegionService:
-    def __init__(self, threshold=0.3, experiment_name='MobileNetV3Large_baseline', dataset_name='rvf10k'):
+    def __init__(self, threshold_quantile=0.7, min_threshold=0.1, experiment_name='MobileNetV3Large_baseline', dataset_name='rvf10k'):
         """
         initialize facial region analysis service
 
         args:
-            threshold: activation threshold for determining if a region is attended (default 0.3)
+            threshold_quantile: quantile to use as attention threshold (e.g., 0.7 = 70th percentile)
+            min_threshold: minimum threshold value to use even if quantile is lower (default 0.1)
             experiment_name: name of the experiment for organizing output
             dataset_name: name of the dataset being analyzed
         """
-        # threshold for determining region activation
-        self.threshold = threshold
+        # threshold parameters for determining region activation
+        self.threshold_quantile = threshold_quantile
+        self.min_threshold = min_threshold
 
         # setup output path
         self.experiment_name = experiment_name
@@ -85,16 +87,17 @@ class FacialRegionService:
 
         return landmarks
 
-    def analyze_facial_region(self, heatmap, landmarks=None, threshold=None):
+    def analyze_facial_region(self, heatmap, landmarks=None, threshold_quantile=None, min_threshold=None):
         """
         analyze which facial regions are activated by the heatmap using polygon masks.
         Wrapper around the utility function.
         """
         # use instance threshold if not specified
-        t = threshold if threshold is not None else self.threshold
+        tq = threshold_quantile if threshold_quantile is not None else self.threshold_quantile
+        mt = min_threshold if min_threshold is not None else self.min_threshold
 
         # Call the new polygon-based utility function
-        return analyze_attention_polygon(heatmap, landmarks, threshold=t)
+        return analyze_attention_polygon(heatmap, landmarks, threshold_quantile=tq, min_threshold=mt)
 
     def add_result(self, filename, heatmap, image=None, landmarks=None,
                    prediction=None, true_label=None, confidence=None):

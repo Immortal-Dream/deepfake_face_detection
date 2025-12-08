@@ -14,7 +14,7 @@ from src.experiments.baselines.BlockShuffleLearning.models.xception import Xcept
 from src.experiments.baselines.ShuffleNetV2.ShuffleNetV2Experiment import ShuffleNetV2Experiment
 
 
-def run_analysis_pipeline(experiment, model_filename, dataset_name, threshold=0.3, batch_limit=50):
+def run_analysis_pipeline(experiment, model_filename, dataset_name, threshold_quantile=0.7, min_threshold=0.1, batch_limit=50):
     """
     Helper function to run the full analysis pipeline for a single experiment/dataset.
     """
@@ -36,7 +36,8 @@ def run_analysis_pipeline(experiment, model_filename, dataset_name, threshold=0.
 
     # FacialRegionService handles landmark detection and region attention stats
     facial_service = FacialRegionService(
-        threshold=threshold,
+        threshold_quantile=threshold_quantile,
+        min_threshold=min_threshold,
         experiment_name=experiment.experiment_name,
         dataset_name=dataset_name
     )
@@ -125,7 +126,8 @@ def test_facial_region():
             experiment=experiment,
             model_filename=model_filename,
             dataset_name=dataset_name,
-            threshold=0.3,  # Adjust attention threshold as needed
+            threshold_quantile=0.7,
+            min_threshold=0.1,  # Adjust attention threshold as needed
             batch_limit=50
         )
 
@@ -143,7 +145,8 @@ def test_facial_region():
             experiment=experiment,
             model_filename=shuffle_model_name,
             dataset_name=shuffle_dataset,
-            threshold=0.3,
+            threshold_quantile=0.7,
+            min_threshold=0.1,  # Adjust attention threshold as needed
             batch_limit=50
         )
     else:
