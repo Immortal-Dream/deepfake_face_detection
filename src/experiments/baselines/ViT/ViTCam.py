@@ -1,8 +1,6 @@
 import argparse
 import warnings
 
-from utils.region_utils import analyze_attention_polygon
-
 warnings.filterwarnings('ignore')
 
 import numpy as np
@@ -25,6 +23,7 @@ from pytorch_grad_cam.utils.image import show_cam_on_image
 from src.config.path_config import OUTPUT_FOLDER, MODEL_FOLDER, get_dataset_paths, DATA_ROOT
 from src.utils.csv_utils import create_dataset_csv
 from src.utils.data_loader_utils import load_images_from_csv
+from src.utils.region_utils import analyze_attention_polygon
 from src.experiments.baselines.ViT.ViTBaselineExperiment import ViTBaselineExperiment
 
 from typing import List, Callable
@@ -54,7 +53,6 @@ class HuggingfaceToTensorModelWrapper(torch.nn.Module):
 
     def forward(self, x):
         return self.model(pixel_values=x).logits
-
 
 def reshape_transform_vit_huggingface(x):
     # Remove CLS token
@@ -284,6 +282,8 @@ if __name__ == "__main__":
 
             for i, (result, filename, true_label, pred_label, confidence) in enumerate(
                 zip(results, batch_filenames, batch_true_labels, batch_pred_labels, batch_confidences)):
+
+                face_detection_failed = 1 if landmarks_list[i] is None else 0
                 
                 region_attention = analyze_attention_polygon(result, landmarks_list[i])
                 
@@ -292,6 +292,7 @@ if __name__ == "__main__":
                     "prediction": pred_label,
                     "true_label": true_label,
                     "confidence": confidence,
+                    "is_failed": face_detection_failed,
                 }
                 
                 for region in FACIAL_REGIONS.keys():
